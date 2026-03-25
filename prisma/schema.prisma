@@ -10,8 +10,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Placeholder model — replace with real domain models when ready
-model Placeholder {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
+model Supplement {
+  id               Int      @id @default(autoincrement())
+  activeIngredient String
+  dosePerUnit      String
+  amountOfUnits    Int
+  amountOfPackages Int
+  brand            String
+  source           String
+  costPerPackage   Float
+  unitsPerDay      Int?
+  unitsLeft        Int?
+  packageUnits     String?
+  takingDaily      Boolean  @default(false)
+  createdAt        DateTime @default(now())
 }
