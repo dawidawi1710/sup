@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect, useRef } from "react";
 import NewSupplementModal from "./NewSupplementModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
+import CalendarModal from "./CalendarModal";
 import {
   updateSupplementPerson,
   setAllTakingDaily,
@@ -423,6 +424,7 @@ export default function SupplementsClient({
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Supplement | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Per-person daily cost
   const personCosts = persons.map((person) => {
@@ -460,6 +462,12 @@ export default function SupplementsClient({
                 {allTakingDaily ? "Deselect all" : "Select all"}
               </button>
             )}
+            <button
+              onClick={() => setShowCalendar(true)}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+            >
+              Calendar
+            </button>
           </div>
 
           {totalCostPerDay > 0 && (
@@ -494,6 +502,13 @@ export default function SupplementsClient({
       {creating && <NewSupplementModal onClose={() => setCreating(false)} />}
       {editing && <NewSupplementModal initial={editing} onClose={() => setEditing(null)} />}
       {deleting !== null && <DeleteConfirmModal id={deleting} onClose={() => setDeleting(null)} />}
+      {showCalendar && (
+        <CalendarModal
+          persons={persons}
+          supplements={supplements}
+          onClose={() => setShowCalendar(false)}
+        />
+      )}
 
       {supplements.length > 0 && (
         <section className="mt-6 w-full max-w-2xl">
