@@ -99,3 +99,23 @@ export async function setAllTakingDaily(value: boolean) {
   await prisma.supplementPerson.updateMany({ data: { takingDaily: value } });
   revalidatePath("/");
 }
+
+// ── SkippedIntake ──────────────────────────────────────────────────────────────
+
+export async function skipIntake(dateStr: string, personId: number, supplementId: number) {
+  const date = new Date(dateStr + "T00:00:00.000Z");
+  await prisma.skippedIntake.upsert({
+    where: { date_personId_supplementId: { date, personId, supplementId } },
+    create: { date, personId, supplementId },
+    update: {},
+  });
+  revalidatePath("/");
+}
+
+export async function unskipIntake(dateStr: string, personId: number, supplementId: number) {
+  const date = new Date(dateStr + "T00:00:00.000Z");
+  await prisma.skippedIntake.delete({
+    where: { date_personId_supplementId: { date, personId, supplementId } },
+  });
+  revalidatePath("/");
+}

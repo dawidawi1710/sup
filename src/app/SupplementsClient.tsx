@@ -42,6 +42,8 @@ type Supplement = {
   persons: SupplementPerson[];
 };
 
+type SkippedIntake = { date: string; personId: number; supplementId: number };
+
 // ── PersonToggle ──────────────────────────────────────────────────────────────
 
 function PersonToggle({
@@ -128,14 +130,19 @@ function PersonRow({
 
 // ── PackageInputs ─────────────────────────────────────────────────────────────
 
-function applyDailyDeduction(storedUnits: number[], startDate: string | null, totalDailyUnits: number): number[] {
+function applyDailyDeduction(
+  storedUnits: number[],
+  startDate: string | null,
+  totalDailyUnits: number,
+  skippedUnits: number,
+): number[] {
   if (!startDate || totalDailyUnits <= 0) return storedUnits;
   const now = new Date();
   const cutoff = new Date(startDate);
-  cutoff.setHours(22, 0, 0, 0); // deduction fires at 10pm each day
+  cutoff.setHours(22, 0, 0, 0);
   if (now <= cutoff) return storedUnits;
   const daysDeducted = Math.floor((now.getTime() - cutoff.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-  let toDeduct = daysDeducted * totalDailyUnits;
+  let toDeduct = Math.max(0, daysDeducted * totalDailyUnits - skippedUnits);
   return storedUnits.map((units) => {
     if (toDeduct <= 0) return units;
     const taken = Math.min(toDeduct, units);
@@ -145,17 +152,17 @@ function applyDailyDeduction(storedUnits: number[], startDate: string | null, to
 }
 
 function PackageInputs({
-  id, packageUnits, amountOfUnits, combinedUnitsPerDay, startDate,
+  id, packageUnits, amountOfUnits, combinedUnitsPerDay, startDate, skippedUnits,
 }: {
-  id: number; packageUnits: number[]; amountOfUnits: number; combinedUnitsPerDay: number; startDate: string | null;
+  id: number; packageUnits: number[]; amountOfUnits: number; combinedUnitsPerDay: number; startDate: string | null; skippedUnits: number;
 }) {
-  const computed = applyDailyDeduction(packageUnits, startDate, combinedUnitsPerDay);
+  const computed = applyDailyDeduction(packageUnits, startDate, combinedUnitsPerDay, skippedUnits);
   const [display, setDisplay] = useState(computed.map(String));
   const [, startTransition] = useTransition();
 
   useEffect(() => {
-    setDisplay(applyDailyDeduction(packageUnits, startDate, combinedUnitsPerDay).map(String));
-  }, [packageUnits, startDate, combinedUnitsPerDay]);
+    setDisplay(applyDailyDeduction(packageUnits, startDate, combinedUnitsPerDay, skippedUnits).map(String));
+  }, [packageUnits, startDate, combinedUnitsPerDay, skippedUnits]);
 
   function handleChange(i: number, raw: string) {
     setDisplay(display.map((v, idx) => (idx === i ? raw : v)));
@@ -417,9 +424,11 @@ function PersonManager({ persons, supplements }: { persons: Person[]; supplement
 export default function SupplementsClient({
   persons,
   supplements,
+  skippedIntakes,
 }: {
   persons: Person[];
   supplements: Supplement[];
+  skippedIntakes: SkippedIntake[];
 }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Supplement | null>(null);
@@ -506,6 +515,7 @@ export default function SupplementsClient({
         <CalendarModal
           persons={persons}
           supplements={supplements}
+          skippedIntakes={skippedIntakes}
           onClose={() => setShowCalendar(false)}
         />
       )}
@@ -524,6 +534,18 @@ export default function SupplementsClient({
                 .reduce((sum, sp) => sum + (sp.unitsPerDay ?? 0), 0);
 
               const anyTakingDaily = s.persons.some((sp) => sp.takingDaily);
+
+              // Sum of units not taken on skipped days for this supplement
+              const startKey = s.startDate ? s.startDate.split("T")[0] : null;
+              const todayKey = new Date().toISOString().split("T")[0];
+              const skippedUnits = startKey
+                ? skippedIntakes
+                    .filter((si) => si.supplementId === s.id && si.date >= startKey && si.date <= todayKey)
+                    .reduce((sum, si) => {
+                      const sp = s.persons.find((p) => p.personId === si.personId);
+                      return sum + (sp?.unitsPerDay ?? 0);
+                    }, 0)
+                : 0;
 
               return (
                 <div
@@ -595,6 +617,7 @@ export default function SupplementsClient({
                       amountOfUnits={s.amountOfUnits}
                       combinedUnitsPerDay={combinedUnitsPerDay}
                       startDate={s.startDate}
+                      skippedUnits={skippedUnits}
                     />
                   </div>
                 </div>

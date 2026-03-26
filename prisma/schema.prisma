@@ -14,6 +14,7 @@ model Person {
   id                Int                @id @default(autoincrement())
   name              String
   supplementPersons SupplementPerson[]
+  skippedIntakes    SkippedIntake[]
 }
 
 model SupplementPerson {
@@ -42,4 +43,16 @@ model Supplement {
   startDate        DateTime?
   createdAt        DateTime           @default(now())
   persons          SupplementPerson[]
+  skippedIntakes   SkippedIntake[]
+}
+
+model SkippedIntake {
+  id           Int        @id @default(autoincrement())
+  date         DateTime
+  personId     Int
+  supplementId Int
+  person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  supplement   Supplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
+
+  @@unique([date, personId, supplementId])
 }
