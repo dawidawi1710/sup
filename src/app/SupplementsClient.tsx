@@ -205,13 +205,65 @@ function PackageInputs({
   );
 }
 
+// ── Intake file generation ────────────────────────────────────────────────────
+
+function buildIntakeText(person: Person, supplements: Supplement[]): string {
+  const date = new Date().toISOString().split("T")[0];
+  const active = supplements.flatMap((s) => {
+    const sp = s.persons.find((sp) => sp.personId === person.id);
+    if (!sp?.takingDaily || !sp.unitsPerDay) return [];
+    return [{ s, sp }];
+  });
+
+  const lines = [
+    `SUPPLEMENT INTAKE REPORT`,
+    `Person : ${person.name}`,
+    `Date   : ${date}`,
+    ``,
+  ];
+
+  if (active.length === 0) {
+    lines.push(`No active supplements.`);
+  } else {
+    lines.push(`Active supplements: ${active.length}`);
+    for (const { s, sp } of active) {
+      const numMatch = s.dosePerUnit.match(/^([\d.]+)\s*(.+)$/);
+      const dailyDose = numMatch
+        ? `${parseFloat(numMatch[1]) * sp.unitsPerDay} ${numMatch[2]}`
+        : `${sp.unitsPerDay} x ${s.dosePerUnit}`;
+      lines.push(``);
+      lines.push(`  Ingredient  : ${s.activeIngredient}`);
+      lines.push(`  Brand       : ${s.brand}`);
+      lines.push(`  Dose/unit   : ${s.dosePerUnit}`);
+      lines.push(`  Units/day   : ${sp.unitsPerDay}`);
+      lines.push(`  Daily dose  : ${dailyDose}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function downloadIntakeFile(person: Person, supplements: Supplement[]) {
+  const text = buildIntakeText(person, supplements);
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${person.name.toLowerCase().replace(/\s+/g, "-")}-supplements.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ── PersonManager ─────────────────────────────────────────────────────────────
 
-function PersonManager({ persons }: { persons: Person[] }) {
+function PersonManager({ persons, supplements }: { persons: Person[]; supplements: Supplement[] }) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -259,9 +311,17 @@ function PersonManager({ persons }: { persons: Person[] }) {
             >
               {p.name}
             </button>
+            <button
+              onClick={() => downloadIntakeFile(p, supplements)}
+              className="text-gray-300 hover:text-blue-400"
+              aria-label={`Download intake report for ${p.name}`}
+              title="Download intake report"
+            >
+              ↓
+            </button>
             {persons.length > 1 && (
               <button
-                onClick={() => startTransition(() => deletePerson(p.id))}
+                onClick={() => setDeletingId(p.id)}
                 className="text-gray-300 hover:text-red-400"
                 aria-label={`Delete ${p.name}`}
               >
@@ -292,6 +352,39 @@ function PersonManager({ persons }: { persons: Person[] }) {
           + Add person
         </button>
       )}
+
+      {deletingId !== null && (() => {
+        const person = persons.find((p) => p.id === deletingId)!;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+              <h2 className="mb-2 text-lg font-semibold">Delete {person.name}?</h2>
+              <p className="mb-6 text-sm text-gray-500">
+                This will permanently remove {person.name} and all their supplement associations.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletingId(null)}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeletingId(null);
+                    startTransition(() => deletePerson(deletingId));
+                  }}
+                  className="rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -327,7 +420,7 @@ export default function SupplementsClient({
     <>
       {/* Top bar */}
       <div className="flex w-full max-w-2xl flex-col gap-3">
-        <PersonManager persons={persons} />
+        <PersonManager persons={persons} supplements={supplements} />
 
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
