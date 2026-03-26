@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import { createSupplement, updateSupplement } from "./actions";
 
 type Supplement = {
@@ -23,8 +22,6 @@ type Props = {
 };
 
 export default function NewSupplementModal({ onClose, initial }: Props) {
-  const formRef = useRef<HTMLFormElement>(null);
-
   async function handleSubmit(formData: FormData) {
     if (initial) {
       await updateSupplement(initial.id, formData);
@@ -38,7 +35,7 @@ export default function NewSupplementModal({ onClose, initial }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
         <h2 className="mb-4 text-lg font-semibold">{initial ? "Edit Supplement" : "New Supplement"}</h2>
-        <form ref={formRef} action={handleSubmit} className="flex flex-col gap-3">
+        <form action={handleSubmit} className="flex flex-col gap-3">
           <Field label="Active ingredient" name="activeIngredient" type="text" defaultValue={initial?.activeIngredient} required />
           <Field label="Dose per unit" name="dosePerUnit" type="text" defaultValue={initial?.dosePerUnit} required />
           <Field label="Amount of units" name="amountOfUnits" type="number" defaultValue={initial?.amountOfUnits?.toString()} required />
