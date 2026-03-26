@@ -36,6 +36,8 @@ type Supplement = {
   costPerPackage: number;
   unitsLeft: number | null;
   packageUnits: string | null;
+  startDate: string | null;
+  createdAt: string;
   persons: SupplementPerson[];
 };
 
@@ -125,15 +127,34 @@ function PersonRow({
 
 // ── PackageInputs ─────────────────────────────────────────────────────────────
 
+function applyDailyDeduction(storedUnits: number[], startDate: string | null, totalDailyUnits: number): number[] {
+  if (!startDate || totalDailyUnits <= 0) return storedUnits;
+  const now = new Date();
+  const cutoff = new Date(startDate);
+  cutoff.setHours(22, 0, 0, 0); // deduction fires at 10pm each day
+  if (now <= cutoff) return storedUnits;
+  const daysDeducted = Math.floor((now.getTime() - cutoff.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  let toDeduct = daysDeducted * totalDailyUnits;
+  return storedUnits.map((units) => {
+    if (toDeduct <= 0) return units;
+    const taken = Math.min(toDeduct, units);
+    toDeduct -= taken;
+    return units - taken;
+  });
+}
+
 function PackageInputs({
-  id, packageUnits, amountOfUnits, combinedUnitsPerDay,
+  id, packageUnits, amountOfUnits, combinedUnitsPerDay, startDate,
 }: {
-  id: number; packageUnits: number[]; amountOfUnits: number; combinedUnitsPerDay: number;
+  id: number; packageUnits: number[]; amountOfUnits: number; combinedUnitsPerDay: number; startDate: string | null;
 }) {
-  const [display, setDisplay] = useState(packageUnits.map(String));
+  const computed = applyDailyDeduction(packageUnits, startDate, combinedUnitsPerDay);
+  const [display, setDisplay] = useState(computed.map(String));
   const [, startTransition] = useTransition();
 
-  useEffect(() => { setDisplay(packageUnits.map(String)); }, [packageUnits]);
+  useEffect(() => {
+    setDisplay(applyDailyDeduction(packageUnits, startDate, combinedUnitsPerDay).map(String));
+  }, [packageUnits, startDate, combinedUnitsPerDay]);
 
   function handleChange(i: number, raw: string) {
     setDisplay(display.map((v, idx) => (idx === i ? raw : v)));
@@ -228,9 +249,10 @@ function buildIntakeText(person: Person, supplements: Supplement[]): string {
     lines.push(`Active supplements: ${active.length}`);
     for (const { s, sp } of active) {
       const numMatch = s.dosePerUnit.match(/^([\d.]+)\s*(.+)$/);
+      const upd = sp.unitsPerDay!;
       const dailyDose = numMatch
-        ? `${parseFloat(numMatch[1]) * sp.unitsPerDay} ${numMatch[2]}`
-        : `${sp.unitsPerDay} x ${s.dosePerUnit}`;
+        ? `${parseFloat(numMatch[1]) * upd} ${numMatch[2]}`
+        : `${upd} x ${s.dosePerUnit}`;
       lines.push(``);
       lines.push(`  Ingredient  : ${s.activeIngredient}`);
       lines.push(`  Brand       : ${s.brand}`);
@@ -501,7 +523,20 @@ export default function SupplementsClient({
                       <p className="text-gray-600">
                         {s.dosePerUnit} · {s.amountOfUnits} units · {s.amountOfPackages} pkg · {s.costPerPackage}€/pkg
                       </p>
-                      <p className="mt-1 text-xs text-gray-400">Source: {s.source}</p>
+                      <p className="mt-1 text-xs text-gray-400">
+                        {s.source.startsWith("http") ? (
+                          <a
+                            href={s.source}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 underline hover:text-blue-600"
+                          >
+                            Reorder ↗
+                          </a>
+                        ) : (
+                          <>Source: {s.source}</>
+                        )}
+                      </p>
 
                       {/* Per-person rows */}
                       <div className="mt-3 flex flex-col gap-1.5 border-t border-gray-100 pt-2">
@@ -544,6 +579,7 @@ export default function SupplementsClient({
                       packageUnits={pkgUnits}
                       amountOfUnits={s.amountOfUnits}
                       combinedUnitsPerDay={combinedUnitsPerDay}
+                      startDate={s.startDate}
                     />
                   </div>
                 </div>

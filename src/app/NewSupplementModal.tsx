@@ -14,6 +14,7 @@ type Supplement = {
   costPerPackage: number;
   unitsLeft: number | null;
   packageUnits: string | null;
+  startDate: string | null;
 };
 
 type Props = {
@@ -43,8 +44,14 @@ export default function NewSupplementModal({ onClose, initial }: Props) {
           <Field label="Amount of units" name="amountOfUnits" type="number" defaultValue={initial?.amountOfUnits?.toString()} required />
           <Field label="Amount of packages" name="amountOfPackages" type="number" defaultValue={initial?.amountOfPackages?.toString()} required />
           <Field label="Brand" name="brand" type="text" defaultValue={initial?.brand} required />
-          <Field label="Source" name="source" type="text" defaultValue={initial?.source} required />
+          <Field label="Source / buy URL" name="source" type="text" defaultValue={initial?.source} placeholder="https://… or store name" required />
           <Field label="Cost per package" name="costPerPackage" type="number" step="0.01" defaultValue={initial?.costPerPackage?.toString()} required />
+          <Field
+            label="Supplementation start date"
+            name="startDate"
+            type="date"
+            defaultValue={initial?.startDate ? new Date(initial.startDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]}
+          />
           <div className="mt-2 flex justify-end gap-2">
             <button
               type="button"
@@ -72,6 +79,7 @@ function Field({
   type,
   step,
   defaultValue,
+  placeholder,
   required,
 }: {
   label: string;
@@ -79,6 +87,7 @@ function Field({
   type: string;
   step?: string;
   defaultValue?: string;
+  placeholder?: string;
   required?: boolean;
 }) {
   return (
@@ -89,6 +98,7 @@ function Field({
         type={type}
         step={step}
         defaultValue={defaultValue}
+        placeholder={placeholder}
         required={required}
         className="rounded-md border border-gray-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />

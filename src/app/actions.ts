@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 function parseSupplementFormData(formData: FormData) {
   const amountOfUnits = parseInt(formData.get("amountOfUnits") as string);
   const amountOfPackages = parseInt(formData.get("amountOfPackages") as string);
+  const startDateStr = formData.get("startDate") as string | null;
   return {
     activeIngredient: formData.get("activeIngredient") as string,
     dosePerUnit: formData.get("dosePerUnit") as string,
@@ -18,6 +19,7 @@ function parseSupplementFormData(formData: FormData) {
     costPerPackage: parseFloat(formData.get("costPerPackage") as string),
     unitsLeft: amountOfUnits * amountOfPackages,
     packageUnits: JSON.stringify(Array(amountOfPackages).fill(amountOfUnits)),
+    startDate: startDateStr ? new Date(startDateStr) : null,
   };
 }
 
@@ -49,6 +51,7 @@ export async function updatePackageUnits(id: number, units: number[]) {
       packageUnits: JSON.stringify(units),
       unitsLeft: units.reduce((a, b) => a + b, 0),
       amountOfPackages: units.length,
+      startDate: new Date(),
     },
   });
   revalidatePath("/");

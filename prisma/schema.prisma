@@ -39,6 +39,7 @@ model Supplement {
   costPerPackage   Float
   unitsLeft        Int?
   packageUnits     String?
+  startDate        DateTime?
   createdAt        DateTime           @default(now())
   persons          SupplementPerson[]
 }
