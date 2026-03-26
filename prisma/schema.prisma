@@ -10,8 +10,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Person {
+  id                Int                @id @default(autoincrement())
+  name              String
+  supplementPersons SupplementPerson[]
+}
+
+model SupplementPerson {
+  id           Int        @id @default(autoincrement())
+  personId     Int
+  supplementId Int
+  takingDaily  Boolean    @default(false)
+  unitsPerDay  Int?
+  person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  supplement   Supplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, supplementId])
+}
+
 model Supplement {
-  id               Int      @id @default(autoincrement())
+  id               Int                @id @default(autoincrement())
   activeIngredient String
   dosePerUnit      String
   amountOfUnits    Int
@@ -19,9 +37,8 @@ model Supplement {
   brand            String
   source           String
   costPerPackage   Float
-  unitsPerDay      Int?
   unitsLeft        Int?
   packageUnits     String?
-  takingDaily      Boolean  @default(false)
-  createdAt        DateTime @default(now())
+  createdAt        DateTime           @default(now())
+  persons          SupplementPerson[]
 }
