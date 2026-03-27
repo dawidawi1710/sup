@@ -213,7 +213,8 @@ function PersonRow({
         onChange={(e) => setDisplay(e.target.value)}
         onBlur={saveUnits}
         onKeyDown={(e) => e.key === "Enter" && saveUnits()}
-        className={`h-9 w-20 rounded-lg border px-3 text-center text-sm transition-colors duration-150 focus:outline-none ${
+        style={{ width: `${Math.max((display || "—").length, 1) + 2}ch` }}
+        className={`h-9 rounded-lg border px-1 text-center text-sm transition-colors duration-150 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
           sp.takingDaily
             ? "border-[#e5e5e5] text-[#0a0a0a] focus:border-[#0a0a0a]"
             : "border-[#f0f0f0] text-[#a3a3a3] focus:border-[#d4d4d4]"
@@ -222,7 +223,7 @@ function PersonRow({
       <span
         className={`text-sm ${sp.takingDaily ? "text-[#737373]" : "text-[#d4d4d4]"}`}
       >
-        units/day
+        /day
       </span>
       {costPerDay != null && (
         <span className="ml-auto text-sm font-semibold text-[#0a0a0a]">
@@ -317,7 +318,8 @@ function PackageInputs({
               onChange={(e) => handleChange(i, e.target.value)}
               onBlur={() => handleBlur(i)}
               onKeyDown={(e) => e.key === "Enter" && handleBlur(i)}
-              className="h-8 w-16 rounded-lg border border-[#e5e5e5] px-2 text-center text-sm text-[#0a0a0a] transition-colors duration-150 focus:border-[#0a0a0a] focus:outline-none"
+              style={{ width: `${Math.max(v.length, 1) + 2}ch` }}
+              className="h-8 rounded-lg border border-[#e5e5e5] px-1 text-center text-sm text-[#0a0a0a] transition-colors duration-150 focus:border-[#0a0a0a] focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             <span className="text-sm text-[#a3a3a3]">/ {amountOfUnits}</span>
             {display.length > 1 && (
@@ -689,7 +691,7 @@ export default function SupplementsClient({
     <>
       {/* Navigation Header */}
       <header className="sticky top-0 z-40 flex h-20 w-full items-center border-b border-[#e5e5e5] bg-white">
-        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between px-8">
+        <div className="mx-auto flex w-full max-w-none items-center justify-between px-8">
           {/* Wordmark + dots */}
           <div className="relative flex items-center gap-1">
             <span className="text-xl font-semibold tracking-tight text-[#0a0a0a]">
@@ -732,7 +734,7 @@ export default function SupplementsClient({
       </header>
 
       {/* Main content */}
-      <div className="mx-auto w-full max-w-[1200px] px-8 py-8">
+      <div className="mx-auto w-full max-w-none px-8 py-8">
         {/* Persons row */}
         <div className="mb-6">
           <PersonManager
@@ -826,7 +828,7 @@ export default function SupplementsClient({
               </h2>
               <Dots style={{ top: -6 }} />
             </div>
-            <div className="flex flex-col gap-5">
+            <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))" }}>
               {orderedSupplements.map((s, index) => {
                 const pkgUnits: number[] = s.packageUnits
                   ? JSON.parse(s.packageUnits)

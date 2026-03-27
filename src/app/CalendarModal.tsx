@@ -62,18 +62,26 @@ function scheduledItems(
   date: Date,
   skippedIntakes: SkippedIntake[],
   deductionLogs: DeductionLogEntry[],
+  today: Date,
 ) {
   const dateKey = localDateKey(date);
+  const todayKey = localDateKey(today);
+  const isPast = dateKey < todayKey;
   return supplements.flatMap((s) => {
     const sp = s.persons.find((sp) => sp.personId === person.id);
-    if (!sp?.takingDaily || !sp.unitsPerDay) return [];
     const isSkipped = skippedIntakes.some(
       (si) => si.date === dateKey && si.personId === person.id && si.supplementId === s.id,
     );
     const log = deductionLogs.find(
       (dl) => dl.date === dateKey && dl.personId === person.id && dl.supplementId === s.id,
     );
-    return [{ supplement: s, unitsPerDay: sp.unitsPerDay, isSkipped, log: log ?? null }];
+    // For past days: only show if there's a log or skipped record (i.e. was actually active that day)
+    if (isPast) {
+      if (!log && !isSkipped) return [];
+    } else {
+      if (!sp?.takingDaily || !sp.unitsPerDay) return [];
+    }
+    return [{ supplement: s, unitsPerDay: sp?.unitsPerDay ?? log?.unitsDeducted ?? 0, isSkipped, log: log ?? null }];
   });
 }
 
@@ -104,22 +112,29 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, de
 
   function dayDotState(date: Date): "none" | "active" | "partial" | "skipped" {
     const dateKey = localDateKey(date);
-    if (dateKey > localDateKey(today)) return "none";
+    const todayKey = localDateKey(today);
+    if (dateKey > todayKey) return "none";
+    const isPast = dateKey < todayKey;
     let total = 0;
     let skipped = 0;
     for (const person of persons) {
       for (const s of supplements) {
         const sp = s.persons.find((sp) => sp.personId === person.id);
-        if (!sp?.takingDaily || !sp.unitsPerDay) continue;
-        total++;
-        const isSkipped = skippedIntakes.some(
+        const isSkippedRecord = skippedIntakes.some(
           (si) => si.date === dateKey && si.personId === person.id && si.supplementId === s.id,
         );
         const log = deductionLogs.find(
           (dl) => dl.date === dateKey && dl.personId === person.id && dl.supplementId === s.id,
         );
+        // For past days: only count if there's evidence of activity that day
+        if (isPast) {
+          if (!log && !isSkippedRecord) continue;
+        } else {
+          if (!sp?.takingDaily || !sp.unitsPerDay) continue;
+        }
+        total++;
         // Count as "skipped" if explicitly skipped or deduction was reversed
-        if (isSkipped || log?.reversed) skipped++;
+        if (isSkippedRecord || log?.reversed) skipped++;
       }
     }
     if (total === 0) return "none";
@@ -130,7 +145,7 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, de
 
   const selectedKey = localDateKey(selected);
   const personRows = persons
-    .map((p) => ({ person: p, items: scheduledItems(p, supplements, selected, skippedIntakes, deductionLogs) }))
+    .map((p) => ({ person: p, items: scheduledItems(p, supplements, selected, skippedIntakes, deductionLogs, today) }))
     .filter(({ items }) => items.length > 0);
 
   function handleToggle(personId: number, supplementId: number, isSkipped: boolean) {
