@@ -41,6 +41,7 @@ model Supplement {
   costPerPackage   Float
   unitsLeft        Int?
   packageUnits     String?
+  packageSetAt     DateTime?
   createdAt        DateTime           @default(now())
   persons          SupplementPerson[]
   skippedIntakes   SkippedIntake[]

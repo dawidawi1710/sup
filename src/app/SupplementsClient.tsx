@@ -37,9 +37,12 @@ type Supplement = {
   costPerPackage: number;
   unitsLeft: number | null;
   packageUnits: string | null;
+  packageSetAt: string | null;
   createdAt: string;
   persons: SupplementPerson[];
 };
+
+type PersonContribution = { startDate: string | null; unitsPerDay: number };
 
 type SkippedIntake = { date: string; personId: number; supplementId: number };
 
@@ -157,17 +160,49 @@ function PersonRow({
 
 // ── PackageInputs ─────────────────────────────────────────────────────────────
 
+function applyDailyDeduction(
+  storedUnits: number[],
+  packageSetAt: string | null,
+  contributions: PersonContribution[],
+  skippedUnits: number,
+): number[] {
+  if (!packageSetAt || contributions.length === 0) return storedUnits;
+  const now = new Date();
+  let toDeduct = 0;
+  for (const { startDate, unitsPerDay } of contributions) {
+    // Effective start = max(person startDate, packageSetAt).
+    // If person's startDate is in the past relative to packageSetAt, the
+    // bottle baseline wins — no retroactive deduction for past start dates.
+    const effectiveDateStr = startDate && startDate > packageSetAt ? startDate : packageSetAt;
+    const effectiveStart = new Date(effectiveDateStr);
+    effectiveStart.setHours(22, 0, 0, 0);
+    if (now <= effectiveStart) continue;
+    const days = Math.floor((now.getTime() - effectiveStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+    toDeduct += days * unitsPerDay;
+  }
+  toDeduct = Math.max(0, toDeduct - skippedUnits);
+  return storedUnits.map((units) => {
+    if (toDeduct <= 0) return units;
+    const taken = Math.min(toDeduct, units);
+    toDeduct -= taken;
+    return units - taken;
+  });
+}
+
 function PackageInputs({
-  id, packageUnits, amountOfUnits, combinedUnitsPerDay,
+  id, packageUnits, amountOfUnits, packageSetAt, contributions, skippedUnits,
 }: {
-  id: number; packageUnits: number[]; amountOfUnits: number; combinedUnitsPerDay: number;
+  id: number; packageUnits: number[]; amountOfUnits: number;
+  packageSetAt: string | null; contributions: PersonContribution[]; skippedUnits: number;
 }) {
-  const [display, setDisplay] = useState(packageUnits.map(String));
+  const compute = () => applyDailyDeduction(packageUnits, packageSetAt, contributions, skippedUnits);
+  const [display, setDisplay] = useState(() => compute().map(String));
   const [, startTransition] = useTransition();
 
   useEffect(() => {
-    setDisplay(packageUnits.map(String));
-  }, [packageUnits]);
+    setDisplay(compute().map(String));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packageUnits, packageSetAt, skippedUnits, JSON.stringify(contributions)]);
 
   function handleChange(i: number, raw: string) {
     setDisplay(display.map((v, idx) => (idx === i ? raw : v)));
@@ -185,7 +220,8 @@ function PackageInputs({
   const values = display.map((v) => parseInt(v) || 0);
   const total = values.reduce((a, b) => a + b, 0);
   const maxTotal = amountOfUnits * packageUnits.length;
-  const daysLeft = combinedUnitsPerDay > 0 ? Math.floor(total / combinedUnitsPerDay) : null;
+  const currentDailyRate = contributions.reduce((s, c) => s + c.unitsPerDay, 0);
+  const daysLeft = currentDailyRate > 0 ? Math.floor(total / currentDailyRate) : null;
   const pct = daysLeft != null
     ? Math.min(daysLeft / 30, 1)
     : maxTotal > 0 ? Math.min(total / maxTotal, 1) : 0;
@@ -526,9 +562,28 @@ export default function SupplementsClient({
 
               const anyTakingDaily = s.persons.some((sp) => sp.takingDaily);
 
-              const combinedUnitsPerDay = s.persons
+              const contributions: PersonContribution[] = s.persons
                 .filter((sp) => sp.takingDaily && sp.unitsPerDay)
-                .reduce((sum, sp) => sum + (sp.unitsPerDay ?? 0), 0);
+                .map((sp) => ({ startDate: sp.startDate, unitsPerDay: sp.unitsPerDay! }));
+
+              const packageSetAtKey = s.packageSetAt ? s.packageSetAt.split("T")[0] : null;
+              const todayKey = new Date().toISOString().split("T")[0];
+              const skippedUnits = packageSetAtKey
+                ? skippedIntakes
+                    .filter((si) => {
+                      if (si.supplementId !== s.id) return false;
+                      if (si.date < packageSetAtKey || si.date > todayKey) return false;
+                      const sp = s.persons.find((p) => p.personId === si.personId);
+                      if (!sp) return false;
+                      const personKey = sp.startDate ? sp.startDate.split("T")[0] : null;
+                      const effectiveKey = personKey && personKey > packageSetAtKey ? personKey : packageSetAtKey;
+                      return si.date >= effectiveKey;
+                    })
+                    .reduce((sum, si) => {
+                      const sp = s.persons.find((p) => p.personId === si.personId);
+                      return sum + (sp?.unitsPerDay ?? 0);
+                    }, 0)
+                : 0;
 
               return (
                 <div
@@ -598,7 +653,9 @@ export default function SupplementsClient({
                       id={s.id}
                       packageUnits={pkgUnits}
                       amountOfUnits={s.amountOfUnits}
-                      combinedUnitsPerDay={combinedUnitsPerDay}
+                      packageSetAt={s.packageSetAt}
+                      contributions={contributions}
+                      skippedUnits={skippedUnits}
                     />
                   </div>
                 </div>

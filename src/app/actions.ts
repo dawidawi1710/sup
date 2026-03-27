@@ -18,6 +18,7 @@ function parseSupplementFormData(formData: FormData) {
     costPerPackage: parseFloat(formData.get("costPerPackage") as string),
     unitsLeft: amountOfUnits * amountOfPackages,
     packageUnits: JSON.stringify(Array(amountOfPackages).fill(amountOfUnits)),
+    packageSetAt: new Date(),
   };
 }
 
@@ -49,6 +50,7 @@ export async function updatePackageUnits(id: number, units: number[]) {
       packageUnits: JSON.stringify(units),
       unitsLeft: units.reduce((a, b) => a + b, 0),
       amountOfPackages: units.length,
+      packageSetAt: new Date(),
     },
   });
   revalidatePath("/");
@@ -85,13 +87,21 @@ export async function updateSupplementPerson(
   data: { takingDaily?: boolean; unitsPerDay?: number | null; startDate?: string | null }
 ) {
   const { startDate, ...rest } = data;
+  const existing = await prisma.supplementPerson.findUnique({
+    where: { personId_supplementId: { personId, supplementId } },
+    select: { startDate: true },
+  });
+  const autoDate = data.takingDaily === true && !existing?.startDate ? new Date() : undefined;
   const dbData = {
     ...rest,
-    ...(startDate !== undefined ? { startDate: startDate ? new Date(startDate) : null } : {}),
+    ...(startDate !== undefined
+      ? { startDate: startDate ? new Date(startDate + "T00:00:00.000Z") : null }
+      : autoDate ? { startDate: autoDate }
+      : {}),
   };
   await prisma.supplementPerson.upsert({
     where: { personId_supplementId: { personId, supplementId } },
-    create: { personId, supplementId, ...dbData },
+    create: { personId, supplementId, ...dbData, ...(autoDate && !dbData.startDate ? { startDate: autoDate } : {}) },
     update: dbData,
   });
   revalidatePath("/");
