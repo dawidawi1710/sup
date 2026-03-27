@@ -13,8 +13,11 @@ export default async function Home() {
 
   const serialized = supplements.map((s) => ({
     ...s,
-    startDate: s.startDate ? s.startDate.toISOString() : null,
     createdAt: s.createdAt.toISOString(),
+    persons: s.persons.map((sp) => ({
+      ...sp,
+      startDate: sp.startDate ? sp.startDate.toISOString() : null,
+    })),
   }));
 
   const skippedIntakes = rawSkipped.map((si) => ({

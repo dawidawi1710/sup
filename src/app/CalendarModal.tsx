@@ -9,13 +9,13 @@ type SupplementPerson = {
   personId: number;
   takingDaily: boolean;
   unitsPerDay: number | null;
+  startDate: string | null;
 };
 
 type Supplement = {
   id: number;
   activeIngredient: string;
   dosePerUnit: string;
-  startDate: string | null;
   persons: SupplementPerson[];
 };
 
@@ -57,9 +57,7 @@ function scheduledItems(
   return supplements.flatMap((s) => {
     const sp = s.persons.find((sp) => sp.personId === person.id);
     if (!sp?.takingDaily || !sp.unitsPerDay) return [];
-    if (!s.startDate) return [];
-    const startKey = s.startDate.split("T")[0];
-    if (dateKey < startKey) return [];
+    if (sp.startDate && dateKey < sp.startDate.split("T")[0]) return [];
     const isSkipped = skippedIntakes.some(
       (si) => si.date === dateKey && si.personId === person.id && si.supplementId === s.id,
     );
@@ -100,8 +98,8 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, on
     for (const person of persons) {
       for (const s of supplements) {
         const sp = s.persons.find((sp) => sp.personId === person.id);
-        if (!sp?.takingDaily || !sp.unitsPerDay || !s.startDate) continue;
-        if (dateKey < s.startDate.split("T")[0]) continue;
+        if (!sp?.takingDaily || !sp.unitsPerDay) continue;
+        if (sp.startDate && dateKey < sp.startDate.split("T")[0]) continue;
         total++;
         if (skippedIntakes.some((si) => si.date === dateKey && si.personId === person.id && si.supplementId === s.id)) {
           skipped++;

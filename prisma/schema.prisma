@@ -23,6 +23,7 @@ model SupplementPerson {
   supplementId Int
   takingDaily  Boolean    @default(false)
   unitsPerDay  Int?
+  startDate    DateTime?
   person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
   supplement   Supplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
 
@@ -40,7 +41,6 @@ model Supplement {
   costPerPackage   Float
   unitsLeft        Int?
   packageUnits     String?
-  startDate        DateTime?
   createdAt        DateTime           @default(now())
   persons          SupplementPerson[]
   skippedIntakes   SkippedIntake[]

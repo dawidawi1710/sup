@@ -13,7 +13,6 @@ type Supplement = {
   costPerPackage: number;
   unitsLeft: number | null;
   packageUnits: string | null;
-  startDate: string | null;
 };
 
 type Props = {
@@ -43,12 +42,6 @@ export default function NewSupplementModal({ onClose, initial }: Props) {
           <Field label="Brand" name="brand" type="text" defaultValue={initial?.brand} required />
           <Field label="Source / buy URL" name="source" type="text" defaultValue={initial?.source} placeholder="https://… or store name" required />
           <Field label="Cost per package" name="costPerPackage" type="number" step="0.01" defaultValue={initial?.costPerPackage?.toString()} required />
-          <Field
-            label="Supplementation start date"
-            name="startDate"
-            type="date"
-            defaultValue={initial?.startDate ? new Date(initial.startDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]}
-          />
           <div className="mt-2 flex justify-end gap-2">
             <button
               type="button"

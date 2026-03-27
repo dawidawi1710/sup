@@ -6,7 +6,6 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import CalendarModal from "./CalendarModal";
 import {
   updateSupplementPerson,
-  setAllTakingDaily,
   updatePackageUnits,
   createPerson,
   deletePerson,
@@ -23,6 +22,7 @@ type SupplementPerson = {
   supplementId: number;
   takingDaily: boolean;
   unitsPerDay: number | null;
+  startDate: string | null;
   person: Person;
 };
 
@@ -37,7 +37,6 @@ type Supplement = {
   costPerPackage: number;
   unitsLeft: number | null;
   packageUnits: string | null;
-  startDate: string | null;
   createdAt: string;
   persons: SupplementPerson[];
 };
@@ -47,9 +46,9 @@ type SkippedIntake = { date: string; personId: number; supplementId: number };
 // ── PersonToggle ──────────────────────────────────────────────────────────────
 
 function PersonToggle({
-  personId, supplementId, value,
+  personId, supplementId, value, currentStartDate, onDateSet,
 }: {
-  personId: number; supplementId: number; value: boolean;
+  personId: number; supplementId: number; value: boolean; currentStartDate: string | null; onDateSet: (date: string) => void;
 }) {
   const [optimistic, setOptimistic] = useState(value);
   const [, startTransition] = useTransition();
@@ -59,7 +58,13 @@ function PersonToggle({
   function handleToggle() {
     const next = !optimistic;
     setOptimistic(next);
-    startTransition(() => updateSupplementPerson(personId, supplementId, { takingDaily: next }));
+    const update: { takingDaily: boolean; startDate?: string } = { takingDaily: next };
+    if (next && !currentStartDate) {
+      const today = new Date().toISOString().split("T")[0];
+      update.startDate = today;
+      onDateSet(today);
+    }
+    startTransition(() => updateSupplementPerson(personId, supplementId, update));
   }
 
   return (
@@ -85,16 +90,28 @@ function PersonRow({
   sp: SupplementPerson; costPerUnit: number;
 }) {
   const [display, setDisplay] = useState(sp.unitsPerDay?.toString() ?? "");
+  const [dateDisplay, setDateDisplay] = useState(
+    sp.startDate ? sp.startDate.split("T")[0] : ""
+  );
   const [, startTransition] = useTransition();
 
   useEffect(() => { setDisplay(sp.unitsPerDay?.toString() ?? ""); }, [sp.unitsPerDay]);
+  useEffect(() => {
+    setDateDisplay(sp.startDate ? sp.startDate.split("T")[0] : "");
+  }, [sp.startDate]);
 
-  function save() {
+  function saveUnits() {
     const val = display === "" ? null : Math.max(0, parseInt(display) || 0);
     const coerced = val === null ? "" : String(val);
     setDisplay(coerced);
     startTransition(() =>
       updateSupplementPerson(sp.personId, sp.supplementId, { unitsPerDay: val })
+    );
+  }
+
+  function saveDate() {
+    startTransition(() =>
+      updateSupplementPerson(sp.personId, sp.supplementId, { startDate: dateDisplay || null })
     );
   }
 
@@ -104,7 +121,7 @@ function PersonRow({
 
   return (
     <div className="flex items-center gap-2 text-xs">
-      <PersonToggle personId={sp.personId} supplementId={sp.supplementId} value={sp.takingDaily} />
+      <PersonToggle personId={sp.personId} supplementId={sp.supplementId} value={sp.takingDaily} currentStartDate={sp.startDate} onDateSet={setDateDisplay} />
       <span className={`w-20 truncate ${sp.takingDaily ? "text-gray-800 font-medium" : "text-gray-400"}`}>
         {sp.person.name}
       </span>
@@ -114,13 +131,23 @@ function PersonRow({
         value={display}
         placeholder="—"
         onChange={(e) => setDisplay(e.target.value)}
-        onBlur={save}
-        onKeyDown={(e) => e.key === "Enter" && save()}
+        onBlur={saveUnits}
+        onKeyDown={(e) => e.key === "Enter" && saveUnits()}
         className={`w-14 rounded border px-1.5 py-0.5 text-xs focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 ${
           sp.takingDaily ? "border-gray-300 text-gray-800" : "border-gray-200 text-gray-400"
         }`}
       />
       <span className={`text-xs ${sp.takingDaily ? "text-gray-400" : "text-gray-300"}`}>units/day</span>
+      <input
+        type="date"
+        value={dateDisplay}
+        onChange={(e) => setDateDisplay(e.target.value)}
+        onBlur={saveDate}
+        onKeyDown={(e) => e.key === "Enter" && saveDate()}
+        className={`ml-2 rounded border px-1.5 py-0.5 text-xs focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 ${
+          sp.takingDaily ? "border-gray-300 text-gray-800" : "border-gray-200 text-gray-400"
+        }`}
+      />
       {costPerDay != null && (
         <span className="ml-auto text-gray-500">{costPerDay.toFixed(2)}€/day</span>
       )}
@@ -130,39 +157,17 @@ function PersonRow({
 
 // ── PackageInputs ─────────────────────────────────────────────────────────────
 
-function applyDailyDeduction(
-  storedUnits: number[],
-  startDate: string | null,
-  totalDailyUnits: number,
-  skippedUnits: number,
-): number[] {
-  if (!startDate || totalDailyUnits <= 0) return storedUnits;
-  const now = new Date();
-  const cutoff = new Date(startDate);
-  cutoff.setHours(22, 0, 0, 0);
-  if (now <= cutoff) return storedUnits;
-  const daysDeducted = Math.floor((now.getTime() - cutoff.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-  let toDeduct = Math.max(0, daysDeducted * totalDailyUnits - skippedUnits);
-  return storedUnits.map((units) => {
-    if (toDeduct <= 0) return units;
-    const taken = Math.min(toDeduct, units);
-    toDeduct -= taken;
-    return units - taken;
-  });
-}
-
 function PackageInputs({
-  id, packageUnits, amountOfUnits, combinedUnitsPerDay, startDate, skippedUnits,
+  id, packageUnits, amountOfUnits, combinedUnitsPerDay,
 }: {
-  id: number; packageUnits: number[]; amountOfUnits: number; combinedUnitsPerDay: number; startDate: string | null; skippedUnits: number;
+  id: number; packageUnits: number[]; amountOfUnits: number; combinedUnitsPerDay: number;
 }) {
-  const computed = applyDailyDeduction(packageUnits, startDate, combinedUnitsPerDay, skippedUnits);
-  const [display, setDisplay] = useState(computed.map(String));
+  const [display, setDisplay] = useState(packageUnits.map(String));
   const [, startTransition] = useTransition();
 
   useEffect(() => {
-    setDisplay(applyDailyDeduction(packageUnits, startDate, combinedUnitsPerDay, skippedUnits).map(String));
-  }, [packageUnits, startDate, combinedUnitsPerDay, skippedUnits]);
+    setDisplay(packageUnits.map(String));
+  }, [packageUnits]);
 
   function handleChange(i: number, raw: string) {
     setDisplay(display.map((v, idx) => (idx === i ? raw : v)));
@@ -446,8 +451,6 @@ export default function SupplementsClient({
   });
   const totalCostPerDay = personCosts.reduce((sum, { cost }) => sum + cost, 0);
 
-  const allTakingDaily = supplements.length > 0 &&
-    supplements.every((s) => s.persons.every((sp) => sp.takingDaily));
 
   return (
     <>
@@ -463,14 +466,6 @@ export default function SupplementsClient({
             >
               New supplement
             </button>
-            {supplements.length > 0 && (
-              <button
-                onClick={() => setAllTakingDaily(!allTakingDaily)}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-              >
-                {allTakingDaily ? "Deselect all" : "Select all"}
-              </button>
-            )}
             <button
               onClick={() => setShowCalendar(true)}
               className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
@@ -529,23 +524,11 @@ export default function SupplementsClient({
                 ? JSON.parse(s.packageUnits)
                 : Array(s.amountOfPackages).fill(s.amountOfUnits);
 
+              const anyTakingDaily = s.persons.some((sp) => sp.takingDaily);
+
               const combinedUnitsPerDay = s.persons
                 .filter((sp) => sp.takingDaily && sp.unitsPerDay)
                 .reduce((sum, sp) => sum + (sp.unitsPerDay ?? 0), 0);
-
-              const anyTakingDaily = s.persons.some((sp) => sp.takingDaily);
-
-              // Sum of units not taken on skipped days for this supplement
-              const startKey = s.startDate ? s.startDate.split("T")[0] : null;
-              const todayKey = new Date().toISOString().split("T")[0];
-              const skippedUnits = startKey
-                ? skippedIntakes
-                    .filter((si) => si.supplementId === s.id && si.date >= startKey && si.date <= todayKey)
-                    .reduce((sum, si) => {
-                      const sp = s.persons.find((p) => p.personId === si.personId);
-                      return sum + (sp?.unitsPerDay ?? 0);
-                    }, 0)
-                : 0;
 
               return (
                 <div
@@ -581,7 +564,7 @@ export default function SupplementsClient({
                           const sp = s.persons.find((sp) => sp.personId === person.id);
                           const defaultSp: SupplementPerson = {
                             id: 0, personId: person.id, supplementId: s.id,
-                            takingDaily: false, unitsPerDay: null, person,
+                            takingDaily: false, unitsPerDay: null, startDate: null, person,
                           };
                           return (
                             <PersonRow
@@ -616,8 +599,6 @@ export default function SupplementsClient({
                       packageUnits={pkgUnits}
                       amountOfUnits={s.amountOfUnits}
                       combinedUnitsPerDay={combinedUnitsPerDay}
-                      startDate={s.startDate}
-                      skippedUnits={skippedUnits}
                     />
                   </div>
                 </div>
