@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect, useRef, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import NewSupplementModal from "./NewSupplementModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
@@ -700,25 +700,6 @@ export default function SupplementsClient({
             <Dots />
           </div>
 
-          {/* Cost summary panel */}
-          {totalCostPerDay > 0 && (
-            <div className="flex items-center gap-6 rounded-xl border border-[#f0f0f0] bg-white px-6 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-              <div className="text-center">
-                <p className="text-xs text-[#737373]">Daily</p>
-                <p className="text-2xl font-semibold leading-tight text-[#0a0a0a]">
-                  €{totalCostPerDay.toFixed(2)}
-                </p>
-              </div>
-              <div className="h-8 w-px bg-[#e5e5e5]" />
-              <div className="text-center">
-                <p className="text-xs text-[#737373]">30 Days</p>
-                <p className="text-2xl font-semibold leading-tight text-[#0a0a0a]">
-                  €{(totalCostPerDay * 30).toFixed(2)}
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Avatar */}
           {persons.length > 0 && (
             <div className="flex cursor-default items-center gap-2 group">
@@ -745,78 +726,120 @@ export default function SupplementsClient({
           />
         </div>
 
-        {/* Action bar */}
-        <div className="mb-12 flex items-center gap-3">
-          <button
-            onClick={() => setCreating(true)}
-            className="h-11 rounded-xl bg-[#0a0a0a] px-5 text-sm font-semibold text-white transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
-          >
-            New supplement
-          </button>
-          <button
-            onClick={() => setShowCalendar(true)}
-            className="h-11 rounded-xl border border-[#e5e5e5] bg-white px-5 text-sm text-[#0a0a0a] transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-          >
-            Calendar
-          </button>
-          <button
-            onClick={() => {
-              setReordering((r) => !r);
-              setDragIndex(null);
-              setDragOverIndex(null);
-            }}
-            className={`h-11 rounded-xl border px-5 text-sm transition-all duration-150 ${
-              reordering
-                ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
-                : "border-[#e5e5e5] bg-white text-[#0a0a0a] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-            }`}
-          >
-            {reordering ? "Done" : "Reorder"}
-          </button>
-          {/* Auto-deduct time pill */}
-          <div className="flex items-center gap-2 rounded-full bg-[#f5f5f5] px-4 py-2 text-sm text-[#525252]">
-            <svg
-              className="h-4 w-4 shrink-0 text-[#737373]"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              viewBox="0 0 24 24"
+        {/* Cost summary + action bar */}
+        <div className="mb-12 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setCreating(true)}
+              className="h-11 rounded-xl bg-[#0a0a0a] px-5 text-sm font-semibold text-white transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
             >
-              <circle cx="12" cy="12" r="9" />
-              <path
-                d="M12 7v5l3 3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {editingTime ? (
-              <input
-                type="time"
-                value={timeDisplay}
-                autoFocus
-                onChange={(e) => setTimeDisplay(e.target.value)}
-                onBlur={() => {
-                  setEditingTime(false);
-                  startTimeTransition(() => updateDeductionTime(timeDisplay));
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                  if (e.key === "Escape") {
-                    setTimeDisplay(deductionTime);
-                    setEditingTime(false);
-                  }
-                }}
-                className="w-20 rounded border border-[#0a0a0a] bg-transparent px-1 text-sm focus:outline-none"
-              />
-            ) : (
-              <button
-                onClick={() => setEditingTime(true)}
-                className="font-medium text-[#0a0a0a] transition-opacity hover:opacity-60"
+              New supplement
+            </button>
+            <button
+              onClick={() => setShowCalendar(true)}
+              className="h-11 rounded-xl border border-[#e5e5e5] bg-white px-5 text-sm text-[#0a0a0a] transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+            >
+              Calendar
+            </button>
+            <button
+              onClick={() => {
+                setReordering((r) => !r);
+                setDragIndex(null);
+                setDragOverIndex(null);
+              }}
+              className={`h-11 rounded-xl border px-5 text-sm transition-all duration-150 ${
+                reordering
+                  ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
+                  : "border-[#e5e5e5] bg-white text-[#0a0a0a] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+              }`}
+            >
+              {reordering ? "Done" : "Reorder"}
+            </button>
+            {/* Auto-deduct time pill */}
+            <div className="flex items-center gap-2 rounded-full bg-[#f5f5f5] px-4 py-2 text-sm text-[#525252]">
+              <svg
+                className="h-4 w-4 shrink-0 text-[#737373]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                viewBox="0 0 24 24"
               >
-                {timeDisplay}
-              </button>
-            )}
+                <circle cx="12" cy="12" r="9" />
+                <path
+                  d="M12 7v5l3 3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {editingTime ? (
+                <input
+                  type="time"
+                  value={timeDisplay}
+                  autoFocus
+                  onChange={(e) => setTimeDisplay(e.target.value)}
+                  onBlur={() => {
+                    setEditingTime(false);
+                    startTimeTransition(() => updateDeductionTime(timeDisplay));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter")
+                      (e.target as HTMLInputElement).blur();
+                    if (e.key === "Escape") {
+                      setTimeDisplay(deductionTime);
+                      setEditingTime(false);
+                    }
+                  }}
+                  className="w-20 rounded border border-[#0a0a0a] bg-transparent px-1 text-sm focus:outline-none"
+                />
+              ) : (
+                <button
+                  onClick={() => setEditingTime(true)}
+                  className="font-medium text-[#0a0a0a] transition-opacity hover:opacity-60"
+                >
+                  {timeDisplay}
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Cost summary panel */}
+          {totalCostPerDay > 0 && (
+            <div className="flex items-center gap-6 rounded-xl border border-[#f0f0f0] bg-white px-6 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+              {personCosts
+                .filter(({ cost }) => cost > 0)
+                .map(({ person, cost }) => (
+                  <Fragment key={person.id}>
+                    <div className="text-center">
+                      <p className="text-xs text-[#737373]">{person.name}</p>
+                      <p className="text-lg font-semibold leading-tight text-[#0a0a0a]">
+                        €{cost.toFixed(2)}
+                        <span className="text-xs font-normal text-[#737373]">
+                          /day
+                        </span>
+                      </p>
+                      <p className="text-xs text-[#737373]">
+                        €{(cost * 30).toFixed(2)}/mo
+                      </p>
+                    </div>
+                    <div className="h-8 w-px bg-[#e5e5e5]" />
+                  </Fragment>
+                ))}
+              <div className="text-center">
+                <p className="text-xs text-[#737373]">
+                  {persons.length > 1 ? "Total" : "Daily"}
+                </p>
+                <p className="text-lg font-semibold leading-tight text-[#0a0a0a]">
+                  €{totalCostPerDay.toFixed(2)}
+                  <span className="text-xs font-normal text-[#737373]">
+                    /day
+                  </span>
+                </p>
+                <p className="text-xs text-[#737373]">
+                  €{(totalCostPerDay * 30).toFixed(2)}/mo
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Supplements section */}
@@ -828,7 +851,12 @@ export default function SupplementsClient({
               </h2>
               <Dots style={{ top: -6 }} />
             </div>
-            <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))" }}>
+            <div
+              className="grid gap-5"
+              style={{
+                gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
+              }}
+            >
               {orderedSupplements.map((s, index) => {
                 const pkgUnits: number[] = s.packageUnits
                   ? JSON.parse(s.packageUnits)
