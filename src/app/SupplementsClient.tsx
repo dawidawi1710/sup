@@ -561,6 +561,7 @@ export default function SupplementsClient({
   const [editingTime, setEditingTime] = useState(false);
   const [, startTimeTransition] = useTransition();
   const [orderedSupplements, setOrderedSupplements] = useState(supplements);
+  const [reordering, setReordering] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [, startReorderTransition] = useTransition();
@@ -666,6 +667,16 @@ export default function SupplementsClient({
           >
             Calendar
           </button>
+          <button
+            onClick={() => { setReordering((r) => !r); setDragIndex(null); setDragOverIndex(null); }}
+            className={`h-11 rounded-xl border px-5 text-sm transition-all duration-150 ${
+              reordering
+                ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
+                : "border-[#e5e5e5] bg-white text-[#0a0a0a] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+            }`}
+          >
+            {reordering ? "Done" : "Reorder"}
+          </button>
           {/* Auto-deduct time pill */}
           <div className="flex items-center gap-2 rounded-full bg-[#f5f5f5] px-4 py-2 text-sm text-[#525252]">
             <svg className="h-4 w-4 shrink-0 text-[#737373]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -728,18 +739,18 @@ export default function SupplementsClient({
                 return (
                   <div
                     key={s.id}
-                    draggable
-                    onDragStart={(e) => {
+                    draggable={reordering}
+                    onDragStart={reordering ? (e) => {
                       setDragIndex(index);
                       e.dataTransfer.effectAllowed = "move";
-                    }}
-                    onDragOver={(e) => {
+                    } : undefined}
+                    onDragOver={reordering ? (e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = "move";
                       if (dragOverIndex !== index) setDragOverIndex(index);
-                    }}
-                    onDragLeave={() => setDragOverIndex(null)}
-                    onDrop={(e) => {
+                    } : undefined}
+                    onDragLeave={reordering ? () => setDragOverIndex(null) : undefined}
+                    onDrop={reordering ? (e) => {
                       e.preventDefault();
                       if (dragIndex === null || dragIndex === index) {
                         setDragIndex(null);
@@ -753,23 +764,24 @@ export default function SupplementsClient({
                       setDragIndex(null);
                       setDragOverIndex(null);
                       startReorderTransition(() => reorderSupplements(next.map((s) => s.id)));
-                    }}
-                    onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                    } : undefined}
+                    onDragEnd={reordering ? () => { setDragIndex(null); setDragOverIndex(null); } : undefined}
                     className={`group rounded-2xl bg-white transition-all duration-150 ${
                       isLowStock
                         ? "border border-[#f5f5f5] border-l-2 border-l-amber-400"
                         : "border border-[#f5f5f5]"
-                    } shadow-[0_1px_3px_rgba(0,0,0,0.02),0_8px_24px_rgba(0,0,0,0.03)] hover:-translate-y-px hover:shadow-[0_2px_8px_rgba(0,0,0,0.04),0_12px_32px_rgba(0,0,0,0.06)] ${
-                      isDragging ? "opacity-40" : ""
-                    } ${isDragOver ? "ring-2 ring-[#0a0a0a] ring-offset-2" : ""}`}
+                    } shadow-[0_1px_3px_rgba(0,0,0,0.02),0_8px_24px_rgba(0,0,0,0.03)] ${
+                      reordering ? "cursor-grab" : "hover:shadow-[0_2px_8px_rgba(0,0,0,0.04),0_12px_32px_rgba(0,0,0,0.06)]"
+                    } ${isDragging ? "opacity-40" : ""} ${isDragOver ? "ring-2 ring-[#0a0a0a] ring-offset-2" : ""}`}
                   >
                     <div className="p-6">
                       {/* Card header */}
                       <div className="flex items-start gap-3">
-                        {/* Drag handle */}
+                        {/* Drag handle — only visible in reorder mode */}
                         <div
-                          className="mt-1 shrink-0 cursor-grab select-none text-[#d4d4d4] transition-colors hover:text-[#a3a3a3] active:cursor-grabbing"
-                          title="Drag to reorder"
+                          className={`mt-1 shrink-0 select-none text-[#a3a3a3] transition-all duration-150 ${
+                            reordering ? "opacity-100" : "opacity-0 pointer-events-none"
+                          }`}
                         >
                           <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 16 16">
                             <circle cx="5" cy="4" r="1.5" /><circle cx="11" cy="4" r="1.5" />
