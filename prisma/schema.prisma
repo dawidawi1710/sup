@@ -24,7 +24,6 @@ model SupplementPerson {
   supplementId Int
   takingDaily  Boolean    @default(false)
   unitsPerDay  Int?
-  startDate    DateTime?
   person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
   supplement   Supplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
 

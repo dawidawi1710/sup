@@ -20,7 +20,6 @@ export async function runDailyDeduction() {
     const personDeductions: { personId: number; units: number }[] = [];
     for (const sp of s.persons) {
       if (!sp.takingDaily || !sp.unitsPerDay) continue;
-      if (sp.startDate && sp.startDate.toISOString().split("T")[0] > todayStr) continue;
       const isSkipped = skippedToday.some(
         (si) => si.personId === sp.personId && si.supplementId === s.id,
       );

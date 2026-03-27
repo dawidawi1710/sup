@@ -93,25 +93,12 @@ export async function renamePerson(id: number, name: string) {
 export async function updateSupplementPerson(
   personId: number,
   supplementId: number,
-  data: { takingDaily?: boolean; unitsPerDay?: number | null; startDate?: string | null }
+  data: { takingDaily?: boolean; unitsPerDay?: number | null }
 ) {
-  const { startDate, ...rest } = data;
-  const existing = await prisma.supplementPerson.findUnique({
-    where: { personId_supplementId: { personId, supplementId } },
-    select: { startDate: true },
-  });
-  const autoDate = data.takingDaily === true && !existing?.startDate ? new Date() : undefined;
-  const dbData = {
-    ...rest,
-    ...(startDate !== undefined
-      ? { startDate: startDate ? new Date(startDate + "T00:00:00.000Z") : null }
-      : autoDate ? { startDate: autoDate }
-      : {}),
-  };
   await prisma.supplementPerson.upsert({
     where: { personId_supplementId: { personId, supplementId } },
-    create: { personId, supplementId, ...dbData, ...(autoDate && !dbData.startDate ? { startDate: autoDate } : {}) },
-    update: dbData,
+    create: { personId, supplementId, ...data },
+    update: data,
   });
   revalidatePath("/");
 }
@@ -157,14 +144,13 @@ export async function deductAllForPerson(personId: number) {
   ]);
 
   // Already deducted all active supplements today — nothing to do
-  const activeSps = sps.filter((sp) => sp.unitsPerDay && (!sp.startDate || sp.startDate.toISOString().split("T")[0] <= todayStr));
+  const activeSps = sps.filter((sp) => sp.unitsPerDay);
   if (alreadyLogged.length > 0 && alreadyLogged.length >= activeSps.length) return;
 
   const loggedIds = new Set(alreadyLogged.map((l) => l.supplementId));
 
   for (const sp of sps) {
     if (!sp.unitsPerDay) continue;
-    if (sp.startDate && sp.startDate.toISOString().split("T")[0] > todayStr) continue;
     if (loggedIds.has(sp.supplementId)) continue;
 
     const pkgUnits: number[] = sp.supplement.packageUnits

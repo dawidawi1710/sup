@@ -27,7 +27,6 @@ type SupplementPerson = {
   supplementId: number;
   takingDaily: boolean;
   unitsPerDay: number | null;
-  startDate: string | null;
   person: Person;
 };
 
@@ -48,7 +47,11 @@ type Supplement = {
 
 type SkippedIntake = { date: string; personId: number; supplementId: number };
 
-type DeductedEntry = { personId: number; supplementId: number; unitsDeducted: number };
+type DeductedEntry = {
+  personId: number;
+  supplementId: number;
+  unitsDeducted: number;
+};
 
 type DeductionLogEntry = {
   date: string;
@@ -63,10 +66,52 @@ type DeductionLogEntry = {
 
 function Dots({ style }: { style?: React.CSSProperties }) {
   return (
-    <span className="pointer-events-none select-none" aria-hidden style={{ position: "relative", display: "inline-block", width: 24, ...style }}>
-      <span style={{ position: "absolute", top: -4, left: 2, width: 4, height: 4, borderRadius: "50%", background: "#0a0a0a", opacity: 0.18 }} />
-      <span style={{ position: "absolute", top: 6, left: 14, width: 5, height: 5, borderRadius: "50%", background: "#0a0a0a", opacity: 0.12 }} />
-      <span style={{ position: "absolute", top: -2, left: 20, width: 3, height: 3, borderRadius: "50%", background: "#0a0a0a", opacity: 0.20 }} />
+    <span
+      className="pointer-events-none select-none"
+      aria-hidden
+      style={{
+        position: "relative",
+        display: "inline-block",
+        width: 24,
+        ...style,
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: -4,
+          left: 2,
+          width: 4,
+          height: 4,
+          borderRadius: "50%",
+          background: "#0a0a0a",
+          opacity: 0.18,
+        }}
+      />
+      <span
+        style={{
+          position: "absolute",
+          top: 6,
+          left: 14,
+          width: 5,
+          height: 5,
+          borderRadius: "50%",
+          background: "#0a0a0a",
+          opacity: 0.12,
+        }}
+      />
+      <span
+        style={{
+          position: "absolute",
+          top: -2,
+          left: 20,
+          width: 3,
+          height: 3,
+          borderRadius: "50%",
+          background: "#0a0a0a",
+          opacity: 0.2,
+        }}
+      />
     </span>
   );
 }
@@ -74,25 +119,27 @@ function Dots({ style }: { style?: React.CSSProperties }) {
 // ── PersonToggle ──────────────────────────────────────────────────────────────
 
 function PersonToggle({
-  personId, supplementId, value, currentStartDate, onDateSet,
+  personId,
+  supplementId,
+  value,
 }: {
-  personId: number; supplementId: number; value: boolean; currentStartDate: string | null; onDateSet: (date: string) => void;
+  personId: number;
+  supplementId: number;
+  value: boolean;
 }) {
   const [optimistic, setOptimistic] = useState(value);
   const [, startTransition] = useTransition();
 
-  useEffect(() => { setOptimistic(value); }, [value]);
+  useEffect(() => {
+    setOptimistic(value);
+  }, [value]);
 
   function handleToggle() {
     const next = !optimistic;
     setOptimistic(next);
-    const update: { takingDaily: boolean; startDate?: string } = { takingDaily: next };
-    if (next && !currentStartDate) {
-      const today = new Date().toISOString().split("T")[0];
-      update.startDate = today;
-      onDateSet(today);
-    }
-    startTransition(() => updateSupplementPerson(personId, supplementId, update));
+    startTransition(() =>
+      updateSupplementPerson(personId, supplementId, { takingDaily: next }),
+    );
   }
 
   return (
@@ -107,7 +154,9 @@ function PersonToggle({
     >
       <span
         className={`inline-block h-4 w-4 transform rounded-full transition-transform duration-200 ${
-          optimistic ? "translate-x-4 bg-white shadow-sm" : "translate-x-0.5 bg-[#c8c8c8]"
+          optimistic
+            ? "translate-x-4 bg-white shadow-sm"
+            : "translate-x-0.5 bg-[#c8c8c8]"
         }`}
       />
     </button>
@@ -117,39 +166,32 @@ function PersonToggle({
 // ── PersonRow ─────────────────────────────────────────────────────────────────
 
 function PersonRow({
-  sp, costPerUnit,
+  sp,
+  costPerUnit,
 }: {
-  sp: SupplementPerson; costPerUnit: number;
+  sp: SupplementPerson;
+  costPerUnit: number;
 }) {
   const [display, setDisplay] = useState(sp.unitsPerDay?.toString() ?? "");
-  const [dateDisplay, setDateDisplay] = useState(
-    sp.startDate ? sp.startDate.split("T")[0] : ""
-  );
   const [, startTransition] = useTransition();
 
-  useEffect(() => { setDisplay(sp.unitsPerDay?.toString() ?? ""); }, [sp.unitsPerDay]);
   useEffect(() => {
-    setDateDisplay(sp.startDate ? sp.startDate.split("T")[0] : "");
-  }, [sp.startDate]);
+    setDisplay(sp.unitsPerDay?.toString() ?? "");
+  }, [sp.unitsPerDay]);
 
   function saveUnits() {
     const val = display === "" ? null : Math.max(0, parseInt(display) || 0);
     const coerced = val === null ? "" : String(val);
     setDisplay(coerced);
     startTransition(() =>
-      updateSupplementPerson(sp.personId, sp.supplementId, { unitsPerDay: val })
+      updateSupplementPerson(sp.personId, sp.supplementId, {
+        unitsPerDay: val,
+      }),
     );
   }
 
-  function saveDate() {
-    startTransition(() =>
-      updateSupplementPerson(sp.personId, sp.supplementId, { startDate: dateDisplay || null })
-    );
-  }
-
-  const costPerDay = sp.takingDaily && sp.unitsPerDay
-    ? costPerUnit * sp.unitsPerDay
-    : null;
+  const costPerDay =
+    sp.takingDaily && sp.unitsPerDay ? costPerUnit * sp.unitsPerDay : null;
 
   return (
     <div className="flex items-center gap-3">
@@ -157,10 +199,10 @@ function PersonRow({
         personId={sp.personId}
         supplementId={sp.supplementId}
         value={sp.takingDaily}
-        currentStartDate={sp.startDate}
-        onDateSet={setDateDisplay}
       />
-      <span className={`w-16 truncate text-sm font-medium ${sp.takingDaily ? "text-[#0a0a0a]" : "text-[#a3a3a3]"}`}>
+      <span
+        className={`w-16 truncate text-sm font-medium ${sp.takingDaily ? "text-[#0a0a0a]" : "text-[#a3a3a3]"}`}
+      >
         {sp.person.name}
       </span>
       <input
@@ -177,19 +219,11 @@ function PersonRow({
             : "border-[#f0f0f0] text-[#a3a3a3] focus:border-[#d4d4d4]"
         }`}
       />
-      <span className={`text-sm ${sp.takingDaily ? "text-[#737373]" : "text-[#d4d4d4]"}`}>units/day</span>
-      <input
-        type="date"
-        value={dateDisplay}
-        onChange={(e) => setDateDisplay(e.target.value)}
-        onBlur={saveDate}
-        onKeyDown={(e) => e.key === "Enter" && saveDate()}
-        className={`h-9 w-36 rounded-lg border px-3 text-sm transition-colors duration-150 focus:outline-none ${
-          sp.takingDaily
-            ? "border-[#e5e5e5] text-[#0a0a0a] focus:border-[#0a0a0a]"
-            : "border-[#f0f0f0] text-[#a3a3a3] focus:border-[#d4d4d4]"
-        }`}
-      />
+      <span
+        className={`text-sm ${sp.takingDaily ? "text-[#737373]" : "text-[#d4d4d4]"}`}
+      >
+        units/day
+      </span>
       {costPerDay != null && (
         <span className="ml-auto text-sm font-semibold text-[#0a0a0a]">
           {costPerDay.toFixed(2)}€/day
@@ -202,14 +236,22 @@ function PersonRow({
 // ── PackageInputs ─────────────────────────────────────────────────────────────
 
 function PackageInputs({
-  id, packageUnits, amountOfUnits, combinedUnitsPerDay,
+  id,
+  packageUnits,
+  amountOfUnits,
+  combinedUnitsPerDay,
 }: {
-  id: number; packageUnits: number[]; amountOfUnits: number; combinedUnitsPerDay: number;
+  id: number;
+  packageUnits: number[];
+  amountOfUnits: number;
+  combinedUnitsPerDay: number;
 }) {
   const [display, setDisplay] = useState(packageUnits.map(String));
   const [, startTransition] = useTransition();
 
-  useEffect(() => { setDisplay(packageUnits.map(String)); }, [packageUnits]);
+  useEffect(() => {
+    setDisplay(packageUnits.map(String));
+  }, [packageUnits]);
 
   function handleChange(i: number, raw: string) {
     setDisplay(display.map((v, idx) => (idx === i ? raw : v)));
@@ -221,18 +263,28 @@ function PackageInputs({
       return String(Math.max(0, Math.min(parseInt(v) || 0, amountOfUnits)));
     });
     setDisplay(coerced);
-    startTransition(() => updatePackageUnits(id, coerced.map((v) => parseInt(v) || 0)));
+    startTransition(() =>
+      updatePackageUnits(
+        id,
+        coerced.map((v) => parseInt(v) || 0),
+      ),
+    );
   }
 
   const values = display.map((v) => parseInt(v) || 0);
   const total = values.reduce((a, b) => a + b, 0);
   const maxTotal = amountOfUnits * packageUnits.length;
-  const daysLeft = combinedUnitsPerDay > 0 ? Math.floor(total / combinedUnitsPerDay) : null;
-  const pct = daysLeft != null
-    ? Math.min(daysLeft / 30, 1)
-    : maxTotal > 0 ? Math.min(total / maxTotal, 1) : 0;
+  const daysLeft =
+    combinedUnitsPerDay > 0 ? Math.floor(total / combinedUnitsPerDay) : null;
+  const pct =
+    daysLeft != null
+      ? Math.min(daysLeft / 30, 1)
+      : maxTotal > 0
+        ? Math.min(total / maxTotal, 1)
+        : 0;
   const isLowStock = daysLeft !== null ? daysLeft < 14 : pct < 0.3;
-  const barFill = pct === 0 ? "bg-[#ef4444]" : isLowStock ? "bg-amber-400" : "bg-[#0a0a0a]";
+  const barFill =
+    pct === 0 ? "bg-[#ef4444]" : isLowStock ? "bg-amber-400" : "bg-[#0a0a0a]";
 
   return (
     <div className="border-t border-[#f0f0f0] pt-5">
@@ -240,7 +292,9 @@ function PackageInputs({
         {display.map((v, i) => (
           <div key={i} className="flex items-center gap-2">
             {display.length > 1 && (
-              <span className="text-xs font-medium text-[#737373]">Pkg {i + 1}:</span>
+              <span className="text-xs font-medium text-[#737373]">
+                Pkg {i + 1}:
+              </span>
             )}
             {display.length === 1 && (
               <span className="text-xs text-[#737373]">Units left:</span>
@@ -249,7 +303,9 @@ function PackageInputs({
               <div className="h-1 w-16 overflow-hidden rounded-full bg-[#f0f0f0]">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${barFill}`}
-                  style={{ width: `${Math.min(((parseInt(v) || 0) / amountOfUnits) * 100, 100)}%` }}
+                  style={{
+                    width: `${Math.min(((parseInt(v) || 0) / amountOfUnits) * 100, 100)}%`,
+                  }}
                 />
               </div>
             )}
@@ -270,7 +326,10 @@ function PackageInputs({
                   const nextDisplay = display.filter((_, idx) => idx !== i);
                   setDisplay(nextDisplay);
                   startTransition(() =>
-                    updatePackageUnits(id, nextDisplay.map((v) => parseInt(v) || 0))
+                    updatePackageUnits(
+                      id,
+                      nextDisplay.map((v) => parseInt(v) || 0),
+                    ),
                   );
                 }}
                 className="text-[#d4d4d4] transition-colors hover:text-[#ef4444]"
@@ -282,7 +341,9 @@ function PackageInputs({
           </div>
         ))}
         {display.length > 1 && (
-          <span className="text-sm font-medium text-[#525252]">= {total} units</span>
+          <span className="text-sm font-medium text-[#525252]">
+            = {total} units
+          </span>
         )}
         {daysLeft != null && (
           <span
@@ -361,7 +422,10 @@ function downloadIntakeFile(person: Person, supplements: Supplement[]) {
 // ── PersonManager ─────────────────────────────────────────────────────────────
 
 function PersonManager({
-  persons, supplements, deductedToday, deductionTime,
+  persons,
+  supplements,
+  deductedToday,
+  deductionTime,
 }: {
   persons: Person[];
   supplements: Supplement[];
@@ -376,11 +440,16 @@ function PersonManager({
   const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { if (adding) inputRef.current?.focus(); }, [adding]);
+  useEffect(() => {
+    if (adding) inputRef.current?.focus();
+  }, [adding]);
 
   function handleAdd() {
     const name = newName.trim();
-    if (!name) { setAdding(false); return; }
+    if (!name) {
+      setAdding(false);
+      return;
+    }
     setAdding(false);
     setNewName("");
     startTransition(() => createPerson(name));
@@ -394,13 +463,18 @@ function PersonManager({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm font-medium text-[#525252]">Active:</span>
       {persons.map((p) => {
         const hasActiveSups = supplements.some((s) =>
-          s.persons.some((sp) => sp.personId === p.id && sp.takingDaily && sp.unitsPerDay)
+          s.persons.some(
+            (sp) => sp.personId === p.id && sp.takingDaily && sp.unitsPerDay,
+          ),
         );
         const takenToday = deductedToday.some((d) => d.personId === p.id);
-        const dotColor = takenToday ? "#10b981" : hasActiveSups ? "#f59e0b" : "#d4d4d4";
+        const dotColor = takenToday
+          ? "#10b981"
+          : hasActiveSups
+            ? "#f59e0b"
+            : "#d4d4d4";
 
         return editingId === p.id ? (
           <input
@@ -429,19 +503,24 @@ function PersonManager({
               style={{ backgroundColor: dotColor }}
             />
             <button
-              onClick={() => { setEditingId(p.id); setEditName(p.name); }}
+              onClick={() => {
+                setEditingId(p.id);
+                setEditName(p.name);
+              }}
               className="hover:opacity-70 transition-opacity"
             >
               {p.name}
             </button>
-            {hasActiveSups && (
-              takenToday ? (
+            {hasActiveSups &&
+              (takenToday ? (
                 <>
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-[#10b981]">
                     TAKEN
                   </span>
                   <button
-                    onClick={() => startTransition(() => revertAllForPerson(p.id))}
+                    onClick={() =>
+                      startTransition(() => revertAllForPerson(p.id))
+                    }
                     className="text-xs text-[#a3a3a3] underline transition-colors hover:text-[#0a0a0a]"
                     title="Undo today's deduction"
                   >
@@ -450,14 +529,15 @@ function PersonManager({
                 </>
               ) : (
                 <button
-                  onClick={() => startTransition(() => deductAllForPerson(p.id))}
+                  onClick={() =>
+                    startTransition(() => deductAllForPerson(p.id))
+                  }
                   className="rounded-full bg-[#0a0a0a] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white transition-opacity hover:opacity-70"
                   title={`Deduct all supplements for ${p.name} · auto-deducts at ${deductionTime}`}
                 >
                   Take
                 </button>
-              )
-            )}
+              ))}
             <button
               onClick={() => downloadIntakeFile(p, supplements)}
               className="text-[#d4d4d4] transition-colors hover:text-[#737373]"
@@ -486,7 +566,10 @@ function PersonManager({
           onBlur={handleAdd}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleAdd();
-            if (e.key === "Escape") { setAdding(false); setNewName(""); }
+            if (e.key === "Escape") {
+              setAdding(false);
+              setNewName("");
+            }
           }}
           placeholder="Name…"
           className="h-8 w-24 rounded-full border border-[#0a0a0a] px-3 text-sm focus:outline-none"
@@ -500,38 +583,42 @@ function PersonManager({
         </button>
       )}
 
-      {deletingId !== null && (() => {
-        const person = persons.find((p) => p.id === deletingId)!;
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-sm rounded-[20px] bg-white p-8 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_12px_32px_rgba(0,0,0,0.08)]">
-              <h2 className="mb-2 text-lg font-semibold text-[#0a0a0a]">Delete {person.name}?</h2>
-              <p className="mb-8 text-sm text-[#737373]">
-                This will permanently remove {person.name} and all their supplement associations.
-              </p>
-              <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeletingId(null);
-                    startTransition(() => deletePerson(deletingId));
-                  }}
-                  className="h-13 w-full rounded-xl bg-[#ef4444] text-sm font-semibold text-white transition-shadow hover:shadow-[0_4px_12px_rgba(239,68,68,0.3)]"
-                >
-                  Delete
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeletingId(null)}
-                  className="text-sm text-[#737373] transition-colors hover:text-[#0a0a0a]"
-                >
-                  Cancel
-                </button>
+      {deletingId !== null &&
+        (() => {
+          const person = persons.find((p) => p.id === deletingId)!;
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-[20px] bg-white p-8 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_12px_32px_rgba(0,0,0,0.08)]">
+                <h2 className="mb-2 text-lg font-semibold text-[#0a0a0a]">
+                  Delete {person.name}?
+                </h2>
+                <p className="mb-8 text-sm text-[#737373]">
+                  This will permanently remove {person.name} and all their
+                  supplement associations.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeletingId(null);
+                      startTransition(() => deletePerson(deletingId));
+                    }}
+                    className="h-13 w-full rounded-xl bg-[#ef4444] text-sm font-semibold text-white transition-shadow hover:shadow-[0_4px_12px_rgba(239,68,68,0.3)]"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeletingId(null)}
+                    className="text-sm text-[#737373] transition-colors hover:text-[#0a0a0a]"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
     </div>
   );
 }
@@ -566,7 +653,9 @@ export default function SupplementsClient({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [, startReorderTransition] = useTransition();
 
-  useEffect(() => { setOrderedSupplements(supplements); }, [supplements]);
+  useEffect(() => {
+    setOrderedSupplements(supplements);
+  }, [supplements]);
 
   const router = useRouter();
 
@@ -634,7 +723,9 @@ export default function SupplementsClient({
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f5] text-sm font-medium text-[#525252] transition-transform group-hover:scale-105">
                 {persons[0].name[0].toUpperCase()}
               </div>
-              <span className="text-sm font-medium text-[#0a0a0a]">{persons[0].name}</span>
+              <span className="text-sm font-medium text-[#0a0a0a]">
+                {persons[0].name}
+              </span>
             </div>
           )}
         </div>
@@ -642,7 +733,6 @@ export default function SupplementsClient({
 
       {/* Main content */}
       <div className="mx-auto w-full max-w-[1200px] px-8 py-8">
-
         {/* Persons row */}
         <div className="mb-6">
           <PersonManager
@@ -668,7 +758,11 @@ export default function SupplementsClient({
             Calendar
           </button>
           <button
-            onClick={() => { setReordering((r) => !r); setDragIndex(null); setDragOverIndex(null); }}
+            onClick={() => {
+              setReordering((r) => !r);
+              setDragIndex(null);
+              setDragOverIndex(null);
+            }}
             className={`h-11 rounded-xl border px-5 text-sm transition-all duration-150 ${
               reordering
                 ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
@@ -679,9 +773,19 @@ export default function SupplementsClient({
           </button>
           {/* Auto-deduct time pill */}
           <div className="flex items-center gap-2 rounded-full bg-[#f5f5f5] px-4 py-2 text-sm text-[#525252]">
-            <svg className="h-4 w-4 shrink-0 text-[#737373]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <svg
+              className="h-4 w-4 shrink-0 text-[#737373]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              viewBox="0 0 24 24"
+            >
               <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3 3" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M12 7v5l3 3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
             {editingTime ? (
               <input
@@ -695,7 +799,10 @@ export default function SupplementsClient({
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                  if (e.key === "Escape") { setTimeDisplay(deductionTime); setEditingTime(false); }
+                  if (e.key === "Escape") {
+                    setTimeDisplay(deductionTime);
+                    setEditingTime(false);
+                  }
                 }}
                 className="w-20 rounded border border-[#0a0a0a] bg-transparent px-1 text-sm focus:outline-none"
               />
@@ -730,7 +837,10 @@ export default function SupplementsClient({
                   .reduce((sum, sp) => sum + (sp.unitsPerDay ?? 0), 0);
 
                 const totalUnits = pkgUnits.reduce((a, b) => a + b, 0);
-                const daysLeft = combinedUnitsPerDay > 0 ? Math.floor(totalUnits / combinedUnitsPerDay) : null;
+                const daysLeft =
+                  combinedUnitsPerDay > 0
+                    ? Math.floor(totalUnits / combinedUnitsPerDay)
+                    : null;
                 const isLowStock = daysLeft !== null && daysLeft < 14;
 
                 const isDragging = dragIndex === index;
@@ -740,38 +850,64 @@ export default function SupplementsClient({
                   <div
                     key={s.id}
                     draggable={reordering}
-                    onDragStart={reordering ? (e) => {
-                      setDragIndex(index);
-                      e.dataTransfer.effectAllowed = "move";
-                    } : undefined}
-                    onDragOver={reordering ? (e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                      if (dragOverIndex !== index) setDragOverIndex(index);
-                    } : undefined}
-                    onDragLeave={reordering ? () => setDragOverIndex(null) : undefined}
-                    onDrop={reordering ? (e) => {
-                      e.preventDefault();
-                      if (dragIndex === null || dragIndex === index) {
-                        setDragIndex(null);
-                        setDragOverIndex(null);
-                        return;
-                      }
-                      const next = [...orderedSupplements];
-                      const [moved] = next.splice(dragIndex, 1);
-                      next.splice(index, 0, moved);
-                      setOrderedSupplements(next);
-                      setDragIndex(null);
-                      setDragOverIndex(null);
-                      startReorderTransition(() => reorderSupplements(next.map((s) => s.id)));
-                    } : undefined}
-                    onDragEnd={reordering ? () => { setDragIndex(null); setDragOverIndex(null); } : undefined}
+                    onDragStart={
+                      reordering
+                        ? (e) => {
+                            setDragIndex(index);
+                            e.dataTransfer.effectAllowed = "move";
+                          }
+                        : undefined
+                    }
+                    onDragOver={
+                      reordering
+                        ? (e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            if (dragOverIndex !== index)
+                              setDragOverIndex(index);
+                          }
+                        : undefined
+                    }
+                    onDragLeave={
+                      reordering ? () => setDragOverIndex(null) : undefined
+                    }
+                    onDrop={
+                      reordering
+                        ? (e) => {
+                            e.preventDefault();
+                            if (dragIndex === null || dragIndex === index) {
+                              setDragIndex(null);
+                              setDragOverIndex(null);
+                              return;
+                            }
+                            const next = [...orderedSupplements];
+                            const [moved] = next.splice(dragIndex, 1);
+                            next.splice(index, 0, moved);
+                            setOrderedSupplements(next);
+                            setDragIndex(null);
+                            setDragOverIndex(null);
+                            startReorderTransition(() =>
+                              reorderSupplements(next.map((s) => s.id)),
+                            );
+                          }
+                        : undefined
+                    }
+                    onDragEnd={
+                      reordering
+                        ? () => {
+                            setDragIndex(null);
+                            setDragOverIndex(null);
+                          }
+                        : undefined
+                    }
                     className={`group rounded-2xl bg-white transition-all duration-150 ${
                       isLowStock
                         ? "border border-[#f5f5f5] border-l-2 border-l-amber-400"
                         : "border border-[#f5f5f5]"
                     } shadow-[0_1px_3px_rgba(0,0,0,0.02),0_8px_24px_rgba(0,0,0,0.03)] ${
-                      reordering ? "cursor-grab" : "hover:shadow-[0_2px_8px_rgba(0,0,0,0.04),0_12px_32px_rgba(0,0,0,0.06)]"
+                      reordering
+                        ? "cursor-grab"
+                        : "hover:shadow-[0_2px_8px_rgba(0,0,0,0.04),0_12px_32px_rgba(0,0,0,0.06)]"
                     } ${isDragging ? "opacity-40" : ""} ${isDragOver ? "ring-2 ring-[#0a0a0a] ring-offset-2" : ""}`}
                   >
                     <div className="p-6">
@@ -780,13 +916,22 @@ export default function SupplementsClient({
                         {/* Drag handle — only visible in reorder mode */}
                         <div
                           className={`mt-1 shrink-0 select-none text-[#a3a3a3] transition-all duration-150 ${
-                            reordering ? "opacity-100" : "opacity-0 pointer-events-none"
+                            reordering
+                              ? "opacity-100"
+                              : "opacity-0 pointer-events-none"
                           }`}
                         >
-                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 16 16">
-                            <circle cx="5" cy="4" r="1.5" /><circle cx="11" cy="4" r="1.5" />
-                            <circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" />
-                            <circle cx="5" cy="12" r="1.5" /><circle cx="11" cy="12" r="1.5" />
+                          <svg
+                            className="h-4 w-4"
+                            fill="currentColor"
+                            viewBox="0 0 16 16"
+                          >
+                            <circle cx="5" cy="4" r="1.5" />
+                            <circle cx="11" cy="4" r="1.5" />
+                            <circle cx="5" cy="8" r="1.5" />
+                            <circle cx="11" cy="8" r="1.5" />
+                            <circle cx="5" cy="12" r="1.5" />
+                            <circle cx="11" cy="12" r="1.5" />
                           </svg>
                         </div>
 
@@ -804,7 +949,8 @@ export default function SupplementsClient({
                                 )}
                               </div>
                               <p className="mt-0.5 text-sm text-[#737373]">
-                                {s.brand} · {s.dosePerUnit} · {s.amountOfUnits} units · {s.costPerPackage}€/pkg
+                                {s.brand} · {s.dosePerUnit} · {s.amountOfUnits}{" "}
+                                units · {s.costPerPackage}€/pkg
                                 {s.source.startsWith("http") && (
                                   <>
                                     {" · "}
@@ -843,16 +989,24 @@ export default function SupplementsClient({
                           {/* Per-person rows */}
                           <div className="mt-5 flex flex-col gap-4 border-t border-[#f5f5f5] pt-4">
                             {persons.map((person) => {
-                              const sp = s.persons.find((sp) => sp.personId === person.id);
+                              const sp = s.persons.find(
+                                (sp) => sp.personId === person.id,
+                              );
                               const defaultSp: SupplementPerson = {
-                                id: 0, personId: person.id, supplementId: s.id,
-                                takingDaily: false, unitsPerDay: null, startDate: null, person,
+                                id: 0,
+                                personId: person.id,
+                                supplementId: s.id,
+                                takingDaily: false,
+                                unitsPerDay: null,
+                                person,
                               };
                               return (
                                 <PersonRow
                                   key={person.id}
                                   sp={sp ?? defaultSp}
-                                  costPerUnit={s.costPerPackage / s.amountOfUnits}
+                                  costPerUnit={
+                                    s.costPerPackage / s.amountOfUnits
+                                  }
                                 />
                               );
                             })}
@@ -880,8 +1034,15 @@ export default function SupplementsClient({
 
       {/* Modals */}
       {creating && <NewSupplementModal onClose={() => setCreating(false)} />}
-      {editing && <NewSupplementModal initial={editing} onClose={() => setEditing(null)} />}
-      {deleting !== null && <DeleteConfirmModal id={deleting} onClose={() => setDeleting(null)} />}
+      {editing && (
+        <NewSupplementModal
+          initial={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {deleting !== null && (
+        <DeleteConfirmModal id={deleting} onClose={() => setDeleting(null)} />
+      )}
       {showCalendar && (
         <CalendarModal
           persons={persons}

@@ -9,7 +9,6 @@ type SupplementPerson = {
   personId: number;
   takingDaily: boolean;
   unitsPerDay: number | null;
-  startDate: string | null;
 };
 
 type Supplement = {
@@ -68,7 +67,6 @@ function scheduledItems(
   return supplements.flatMap((s) => {
     const sp = s.persons.find((sp) => sp.personId === person.id);
     if (!sp?.takingDaily || !sp.unitsPerDay) return [];
-    if (sp.startDate && dateKey < sp.startDate.split("T")[0]) return [];
     const isSkipped = skippedIntakes.some(
       (si) => si.date === dateKey && si.personId === person.id && si.supplementId === s.id,
     );
@@ -113,7 +111,6 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, de
       for (const s of supplements) {
         const sp = s.persons.find((sp) => sp.personId === person.id);
         if (!sp?.takingDaily || !sp.unitsPerDay) continue;
-        if (sp.startDate && dateKey < sp.startDate.split("T")[0]) continue;
         total++;
         const isSkipped = skippedIntakes.some(
           (si) => si.date === dateKey && si.personId === person.id && si.supplementId === s.id,
