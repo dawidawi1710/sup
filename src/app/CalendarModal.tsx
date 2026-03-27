@@ -21,10 +21,20 @@ type Supplement = {
 
 type SkippedIntake = { date: string; personId: number; supplementId: number };
 
+type DeductionLogEntry = {
+  date: string;
+  personId: number;
+  supplementId: number;
+  source: string;
+  reversed: boolean;
+  unitsDeducted: number;
+};
+
 type Props = {
   persons: Person[];
   supplements: Supplement[];
   skippedIntakes: SkippedIntake[];
+  deductionLogs: DeductionLogEntry[];
   onClose: () => void;
 };
 
@@ -52,6 +62,7 @@ function scheduledItems(
   supplements: Supplement[],
   date: Date,
   skippedIntakes: SkippedIntake[],
+  deductionLogs: DeductionLogEntry[],
 ) {
   const dateKey = localDateKey(date);
   return supplements.flatMap((s) => {
@@ -61,11 +72,14 @@ function scheduledItems(
     const isSkipped = skippedIntakes.some(
       (si) => si.date === dateKey && si.personId === person.id && si.supplementId === s.id,
     );
-    return [{ supplement: s, unitsPerDay: sp.unitsPerDay, isSkipped }];
+    const log = deductionLogs.find(
+      (dl) => dl.date === dateKey && dl.personId === person.id && dl.supplementId === s.id,
+    );
+    return [{ supplement: s, unitsPerDay: sp.unitsPerDay, isSkipped, log: log ?? null }];
   });
 }
 
-export default function CalendarModal({ persons, supplements, skippedIntakes, onClose }: Props) {
+export default function CalendarModal({ persons, supplements, skippedIntakes, deductionLogs, onClose }: Props) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -90,9 +104,9 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, on
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  // Dot state per day: none | partial | all-skipped | active
   function dayDotState(date: Date): "none" | "active" | "partial" | "skipped" {
     const dateKey = localDateKey(date);
+    if (dateKey > localDateKey(today)) return "none";
     let total = 0;
     let skipped = 0;
     for (const person of persons) {
@@ -101,9 +115,14 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, on
         if (!sp?.takingDaily || !sp.unitsPerDay) continue;
         if (sp.startDate && dateKey < sp.startDate.split("T")[0]) continue;
         total++;
-        if (skippedIntakes.some((si) => si.date === dateKey && si.personId === person.id && si.supplementId === s.id)) {
-          skipped++;
-        }
+        const isSkipped = skippedIntakes.some(
+          (si) => si.date === dateKey && si.personId === person.id && si.supplementId === s.id,
+        );
+        const log = deductionLogs.find(
+          (dl) => dl.date === dateKey && dl.personId === person.id && dl.supplementId === s.id,
+        );
+        // Count as "skipped" if explicitly skipped or deduction was reversed
+        if (isSkipped || log?.reversed) skipped++;
       }
     }
     if (total === 0) return "none";
@@ -114,7 +133,7 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, on
 
   const selectedKey = localDateKey(selected);
   const personRows = persons
-    .map((p) => ({ person: p, items: scheduledItems(p, supplements, selected, skippedIntakes) }))
+    .map((p) => ({ person: p, items: scheduledItems(p, supplements, selected, skippedIntakes, deductionLogs) }))
     .filter(({ items }) => items.length > 0);
 
   function handleToggle(personId: number, supplementId: number, isSkipped: boolean) {
@@ -206,7 +225,7 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, on
           </div>
 
           {/* Day detail */}
-          <div className="w-64 p-6">
+          <div className="w-72 p-6 overflow-y-auto max-h-[520px]">
             <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
               {selected.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
             </p>
@@ -223,9 +242,10 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, on
                       <div className="mb-2 flex items-center justify-between">
                         <p className="text-xs font-semibold text-gray-700">{person.name}</p>
                         <button
-                          onClick={() => allSkipped || !anySkipped
-                            ? allSkipped ? handleRestoreAll(person.id, items) : handleSkipAll(person.id, items)
-                            : handleSkipAll(person.id, items)
+                          onClick={() =>
+                            allSkipped || !anySkipped
+                              ? allSkipped ? handleRestoreAll(person.id, items) : handleSkipAll(person.id, items)
+                              : handleSkipAll(person.id, items)
                           }
                           className="text-xs text-gray-400 hover:text-gray-600"
                         >
@@ -233,25 +253,44 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, on
                         </button>
                       </div>
                       <ul className="flex flex-col gap-2">
-                        {items.map(({ supplement, unitsPerDay, isSkipped }) => (
-                          <li key={supplement.id} className="flex items-start justify-between gap-2">
-                            <div className={isSkipped ? "opacity-40 line-through" : ""}>
-                              <p className="text-xs font-medium text-gray-800 leading-tight">{supplement.activeIngredient}</p>
-                              <p className="text-xs text-gray-400">{formatDailyDose(supplement.dosePerUnit, unitsPerDay)}</p>
-                            </div>
-                            <button
-                              onClick={() => handleToggle(person.id, supplement.id, isSkipped)}
-                              title={isSkipped ? "Mark as taken" : "Mark as skipped"}
-                              className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs transition-colors ${
-                                isSkipped
-                                  ? "bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-600"
-                                  : "bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500"
-                              }`}
-                            >
-                              {isSkipped ? "↩" : "×"}
-                            </button>
-                          </li>
-                        ))}
+                        {items.map(({ supplement, unitsPerDay, isSkipped, log }) => {
+                          const isDeducted = log && !log.reversed;
+                          return (
+                            <li key={supplement.id} className="flex items-start justify-between gap-2">
+                              <div className={isSkipped ? "opacity-40 line-through" : ""}>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-medium text-gray-800 leading-tight">
+                                    {supplement.activeIngredient}
+                                  </p>
+                                  {isDeducted && (
+                                    <span
+                                      className={`rounded px-1 py-px text-[10px] font-medium leading-tight ${
+                                        log.source === "manual"
+                                          ? "bg-blue-100 text-blue-600"
+                                          : "bg-purple-100 text-purple-600"
+                                      }`}
+                                      title={log.source === "manual" ? "Manually deducted" : "Auto-deducted"}
+                                    >
+                                      {log.source === "manual" ? "manual" : "auto"}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-400">{formatDailyDose(supplement.dosePerUnit, unitsPerDay)}</p>
+                              </div>
+                              <button
+                                onClick={() => handleToggle(person.id, supplement.id, isSkipped)}
+                                title={isSkipped ? "Mark as taken" : isDeducted ? "Skip & reverse deduction" : "Mark as skipped"}
+                                className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs transition-colors ${
+                                  isSkipped
+                                    ? "bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-600"
+                                    : "bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                                }`}
+                              >
+                                {isSkipped ? "↩" : "×"}
+                              </button>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import NewSupplementModal from "./NewSupplementModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import CalendarModal from "./CalendarModal";
@@ -8,10 +9,12 @@ import {
   updateSupplementPerson,
   updatePackageUnits,
   updateDeductionTime,
-  triggerDeductionNow,
+  reorderSupplements,
   createPerson,
   deletePerson,
   renamePerson,
+  deductAllForPerson,
+  revertAllForPerson,
 } from "./actions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -44,6 +47,17 @@ type Supplement = {
 };
 
 type SkippedIntake = { date: string; personId: number; supplementId: number };
+
+type DeductedEntry = { personId: number; supplementId: number; unitsDeducted: number };
+
+type DeductionLogEntry = {
+  date: string;
+  personId: number;
+  supplementId: number;
+  source: string;
+  reversed: boolean;
+  unitsDeducted: number;
+};
 
 // ── PersonToggle ──────────────────────────────────────────────────────────────
 
@@ -293,7 +307,14 @@ function downloadIntakeFile(person: Person, supplements: Supplement[]) {
 
 // ── PersonManager ─────────────────────────────────────────────────────────────
 
-function PersonManager({ persons, supplements }: { persons: Person[]; supplements: Supplement[] }) {
+function PersonManager({
+  persons, supplements, deductedToday, deductionTime,
+}: {
+  persons: Person[];
+  supplements: Supplement[];
+  deductedToday: DeductedEntry[];
+  deductionTime: string;
+}) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -321,8 +342,13 @@ function PersonManager({ persons, supplements }: { persons: Person[]; supplement
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">People:</span>
-      {persons.map((p) =>
-        editingId === p.id ? (
+      {persons.map((p) => {
+        const hasActiveSups = supplements.some((s) =>
+          s.persons.some((sp) => sp.personId === p.id && sp.takingDaily && sp.unitsPerDay)
+        );
+        const takenToday = deductedToday.some((d) => d.personId === p.id);
+
+        return editingId === p.id ? (
           <input
             key={p.id}
             autoFocus
@@ -338,14 +364,38 @@ function PersonManager({ persons, supplements }: { persons: Person[]; supplement
         ) : (
           <span
             key={p.id}
-            className="group flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
+            className={`group flex items-center gap-1 rounded-full px-3 py-1 text-xs ${
+              takenToday ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"
+            }`}
           >
             <button
               onClick={() => { setEditingId(p.id); setEditName(p.name); }}
-              className="hover:text-gray-900"
+              className="hover:opacity-80"
             >
               {p.name}
             </button>
+            {hasActiveSups && (
+              takenToday ? (
+                <>
+                  <span className="text-green-500" title={`Auto-deducts tomorrow at ${deductionTime}`}>✓</span>
+                  <button
+                    onClick={() => startTransition(() => revertAllForPerson(p.id))}
+                    className="text-green-400 underline hover:text-red-500 text-xs"
+                    title="Undo today's deduction"
+                  >
+                    undo
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => startTransition(() => deductAllForPerson(p.id))}
+                  className="rounded bg-blue-500 px-1.5 py-0.5 text-white hover:bg-blue-600 text-xs leading-none"
+                  title={`Deduct all supplements for ${p.name} · auto-deducts at ${deductionTime}`}
+                >
+                  Take
+                </button>
+              )
+            )}
             <button
               onClick={() => downloadIntakeFile(p, supplements)}
               className="text-gray-300 hover:text-blue-400"
@@ -364,8 +414,8 @@ function PersonManager({ persons, supplements }: { persons: Person[]; supplement
               </button>
             )}
           </span>
-        )
-      )}
+        );
+      })}
       {adding ? (
         <input
           ref={inputRef}
@@ -431,11 +481,15 @@ export default function SupplementsClient({
   supplements,
   skippedIntakes,
   deductionTime,
+  deductedToday,
+  allDeductionLogs,
 }: {
   persons: Person[];
   supplements: Supplement[];
   skippedIntakes: SkippedIntake[];
   deductionTime: string;
+  deductedToday: DeductedEntry[];
+  allDeductionLogs: DeductionLogEntry[];
 }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Supplement | null>(null);
@@ -444,6 +498,32 @@ export default function SupplementsClient({
   const [timeDisplay, setTimeDisplay] = useState(deductionTime);
   const [editingTime, setEditingTime] = useState(false);
   const [, startTimeTransition] = useTransition();
+  const [orderedSupplements, setOrderedSupplements] = useState(supplements);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [, startReorderTransition] = useTransition();
+
+  useEffect(() => { setOrderedSupplements(supplements); }, [supplements]);
+
+  const router = useRouter();
+
+  // Poll every 60 s so any server-side change (auto-deduction, other tabs) is reflected
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), 60_000);
+    return () => clearInterval(interval);
+  }, [router]);
+
+  // Fire an extra refresh precisely at the scheduled deduction time
+  useEffect(() => {
+    const [h, m] = deductionTime.split(":").map(Number);
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(h, m, 5, 0); // 5 s after deduction fires
+    if (next <= now) next.setDate(next.getDate() + 1);
+    const ms = next.getTime() - now.getTime();
+    const timeout = setTimeout(() => router.refresh(), ms);
+    return () => clearTimeout(timeout);
+  }, [deductionTime, router]);
 
   // Per-person daily cost
   const personCosts = persons.map((person) => {
@@ -461,7 +541,7 @@ export default function SupplementsClient({
     <>
       {/* Top bar */}
       <div className="flex w-full max-w-2xl flex-col gap-3">
-        <PersonManager persons={persons} supplements={supplements} />
+        <PersonManager persons={persons} supplements={supplements} deductedToday={deductedToday} deductionTime={deductionTime} />
 
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
@@ -503,13 +583,6 @@ export default function SupplementsClient({
                   {timeDisplay}
                 </button>
               )}
-              <button
-                onClick={() => startTimeTransition(() => triggerDeductionNow())}
-                title="Run deduction now"
-                className="ml-1 text-gray-300 hover:text-blue-500"
-              >
-                ▶
-              </button>
             </div>
           </div>
 
@@ -550,15 +623,16 @@ export default function SupplementsClient({
           persons={persons}
           supplements={supplements}
           skippedIntakes={skippedIntakes}
+          deductionLogs={allDeductionLogs}
           onClose={() => setShowCalendar(false)}
         />
       )}
 
-      {supplements.length > 0 && (
+      {orderedSupplements.length > 0 && (
         <section className="mt-6 w-full max-w-2xl">
           <h2 className="mb-3 text-lg font-semibold">Existing supplements</h2>
           <div className="flex flex-col gap-3">
-            {supplements.map((s) => {
+            {orderedSupplements.map((s, index) => {
               const pkgUnits: number[] = s.packageUnits
                 ? JSON.parse(s.packageUnits)
                 : Array(s.amountOfPackages).fill(s.amountOfUnits);
@@ -569,14 +643,50 @@ export default function SupplementsClient({
                 .filter((sp) => sp.takingDaily && sp.unitsPerDay)
                 .reduce((sum, sp) => sum + (sp.unitsPerDay ?? 0), 0);
 
+              const isDragging = dragIndex === index;
+              const isDragOver = dragOverIndex === index;
+
               return (
                 <div
                   key={s.id}
+                  draggable
+                  onDragStart={(e) => {
+                    setDragIndex(index);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dragOverIndex !== index) setDragOverIndex(index);
+                  }}
+                  onDragLeave={() => setDragOverIndex(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragIndex === null || dragIndex === index) {
+                      setDragIndex(null);
+                      setDragOverIndex(null);
+                      return;
+                    }
+                    const next = [...orderedSupplements];
+                    const [moved] = next.splice(dragIndex, 1);
+                    next.splice(index, 0, moved);
+                    setOrderedSupplements(next);
+                    setDragIndex(null);
+                    setDragOverIndex(null);
+                    startReorderTransition(() => reorderSupplements(next.map((s) => s.id)));
+                  }}
+                  onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
                   className={`rounded-lg border text-sm transition-colors ${
                     anyTakingDaily ? "border-green-300 bg-green-50" : "border-gray-200 bg-white"
-                  }`}
+                  } ${isDragging ? "opacity-40" : ""} ${isDragOver ? "ring-2 ring-blue-400 ring-offset-1" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-4 p-4 pb-2">
+                    <div
+                      className="mt-0.5 shrink-0 cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing select-none"
+                      title="Drag to reorder"
+                    >
+                      ⠿
+                    </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{s.activeIngredient} — {s.brand}</p>
                       <p className="text-gray-600">

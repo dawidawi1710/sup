@@ -15,6 +15,7 @@ model Person {
   name              String
   supplementPersons SupplementPerson[]
   skippedIntakes    SkippedIntake[]
+  deductionLogs     DeductionLog[]
 }
 
 model SupplementPerson {
@@ -42,9 +43,25 @@ model Supplement {
   unitsLeft        Int?
   packageUnits     String?
   packageSetAt     DateTime?
+  order            Int                @default(0)
   createdAt        DateTime           @default(now())
   persons          SupplementPerson[]
   skippedIntakes   SkippedIntake[]
+  deductionLogs    DeductionLog[]
+}
+
+model DeductionLog {
+  id            Int        @id @default(autoincrement())
+  date          DateTime
+  personId      Int
+  supplementId  Int
+  unitsDeducted Int
+  source        String     @default("auto")
+  reversed      Boolean    @default(false)
+  person        Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  supplement    Supplement @relation(fields: [supplementId], references: [id], onDelete: Cascade)
+
+  @@unique([date, personId, supplementId])
 }
 
 model Settings {

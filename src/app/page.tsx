@@ -2,14 +2,18 @@ import { prisma } from "@/lib/prisma";
 import SupplementsClient from "./SupplementsClient";
 
 export default async function Home() {
-  const [persons, supplements, rawSkipped, deductionTimeSetting] = await Promise.all([
+  const todayDate = new Date(new Date().toISOString().split("T")[0] + "T00:00:00.000Z");
+
+  const [persons, supplements, rawSkipped, deductionTimeSetting, rawDeductedToday, rawAllLogs] = await Promise.all([
     prisma.person.findMany({ orderBy: { id: "asc" } }),
     prisma.supplement.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ order: "asc" }, { createdAt: "desc" }],
       include: { persons: { include: { person: true } } },
     }),
     prisma.skippedIntake.findMany(),
     prisma.settings.findUnique({ where: { key: "deductionTime" } }),
+    prisma.deductionLog.findMany({ where: { date: todayDate } }),
+    prisma.deductionLog.findMany(),
   ]);
 
   const serialized = supplements.map((s) => ({
@@ -27,6 +31,21 @@ export default async function Home() {
     supplementId: si.supplementId,
   }));
 
+  const deductedToday = rawDeductedToday.map((dl) => ({
+    personId: dl.personId,
+    supplementId: dl.supplementId,
+    unitsDeducted: dl.unitsDeducted,
+  }));
+
+  const allDeductionLogs = rawAllLogs.map((dl) => ({
+    date: dl.date.toISOString().split("T")[0],
+    personId: dl.personId,
+    supplementId: dl.supplementId,
+    source: dl.source,
+    reversed: dl.reversed,
+    unitsDeducted: dl.unitsDeducted,
+  }));
+
   return (
     <main className="flex min-h-screen flex-col items-center px-8 py-12">
       <SupplementsClient
@@ -34,6 +53,8 @@ export default async function Home() {
         supplements={serialized}
         skippedIntakes={skippedIntakes}
         deductionTime={deductionTimeSetting?.value ?? "22:00"}
+        deductedToday={deductedToday}
+        allDeductionLogs={allDeductionLogs}
       />
     </main>
   );
