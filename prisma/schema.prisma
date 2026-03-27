@@ -47,6 +47,11 @@ model Supplement {
   skippedIntakes   SkippedIntake[]
 }
 
+model Settings {
+  key   String @id
+  value String
+}
+
 model SkippedIntake {
   id           Int        @id @default(autoincrement())
   date         DateTime

@@ -7,6 +7,8 @@ import CalendarModal from "./CalendarModal";
 import {
   updateSupplementPerson,
   updatePackageUnits,
+  updateDeductionTime,
+  triggerDeductionNow,
   createPerson,
   deletePerson,
   renamePerson,
@@ -37,12 +39,9 @@ type Supplement = {
   costPerPackage: number;
   unitsLeft: number | null;
   packageUnits: string | null;
-  packageSetAt: string | null;
   createdAt: string;
   persons: SupplementPerson[];
 };
-
-type PersonContribution = { startDate: string | null; unitsPerDay: number };
 
 type SkippedIntake = { date: string; personId: number; supplementId: number };
 
@@ -160,49 +159,15 @@ function PersonRow({
 
 // ── PackageInputs ─────────────────────────────────────────────────────────────
 
-function applyDailyDeduction(
-  storedUnits: number[],
-  packageSetAt: string | null,
-  contributions: PersonContribution[],
-  skippedUnits: number,
-): number[] {
-  if (!packageSetAt || contributions.length === 0) return storedUnits;
-  const now = new Date();
-  let toDeduct = 0;
-  for (const { startDate, unitsPerDay } of contributions) {
-    // Effective start = max(person startDate, packageSetAt).
-    // If person's startDate is in the past relative to packageSetAt, the
-    // bottle baseline wins — no retroactive deduction for past start dates.
-    const effectiveDateStr = startDate && startDate > packageSetAt ? startDate : packageSetAt;
-    const effectiveStart = new Date(effectiveDateStr);
-    effectiveStart.setHours(22, 0, 0, 0);
-    if (now <= effectiveStart) continue;
-    const days = Math.floor((now.getTime() - effectiveStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-    toDeduct += days * unitsPerDay;
-  }
-  toDeduct = Math.max(0, toDeduct - skippedUnits);
-  return storedUnits.map((units) => {
-    if (toDeduct <= 0) return units;
-    const taken = Math.min(toDeduct, units);
-    toDeduct -= taken;
-    return units - taken;
-  });
-}
-
 function PackageInputs({
-  id, packageUnits, amountOfUnits, packageSetAt, contributions, skippedUnits,
+  id, packageUnits, amountOfUnits, combinedUnitsPerDay,
 }: {
-  id: number; packageUnits: number[]; amountOfUnits: number;
-  packageSetAt: string | null; contributions: PersonContribution[]; skippedUnits: number;
+  id: number; packageUnits: number[]; amountOfUnits: number; combinedUnitsPerDay: number;
 }) {
-  const compute = () => applyDailyDeduction(packageUnits, packageSetAt, contributions, skippedUnits);
-  const [display, setDisplay] = useState(() => compute().map(String));
+  const [display, setDisplay] = useState(packageUnits.map(String));
   const [, startTransition] = useTransition();
 
-  useEffect(() => {
-    setDisplay(compute().map(String));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [packageUnits, packageSetAt, skippedUnits, JSON.stringify(contributions)]);
+  useEffect(() => { setDisplay(packageUnits.map(String)); }, [packageUnits]);
 
   function handleChange(i: number, raw: string) {
     setDisplay(display.map((v, idx) => (idx === i ? raw : v)));
@@ -220,8 +185,7 @@ function PackageInputs({
   const values = display.map((v) => parseInt(v) || 0);
   const total = values.reduce((a, b) => a + b, 0);
   const maxTotal = amountOfUnits * packageUnits.length;
-  const currentDailyRate = contributions.reduce((s, c) => s + c.unitsPerDay, 0);
-  const daysLeft = currentDailyRate > 0 ? Math.floor(total / currentDailyRate) : null;
+  const daysLeft = combinedUnitsPerDay > 0 ? Math.floor(total / combinedUnitsPerDay) : null;
   const pct = daysLeft != null
     ? Math.min(daysLeft / 30, 1)
     : maxTotal > 0 ? Math.min(total / maxTotal, 1) : 0;
@@ -466,15 +430,20 @@ export default function SupplementsClient({
   persons,
   supplements,
   skippedIntakes,
+  deductionTime,
 }: {
   persons: Person[];
   supplements: Supplement[];
   skippedIntakes: SkippedIntake[];
+  deductionTime: string;
 }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Supplement | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [timeDisplay, setTimeDisplay] = useState(deductionTime);
+  const [editingTime, setEditingTime] = useState(false);
+  const [, startTimeTransition] = useTransition();
 
   // Per-person daily cost
   const personCosts = persons.map((person) => {
@@ -508,6 +477,40 @@ export default function SupplementsClient({
             >
               Calendar
             </button>
+            <div className="flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-2 text-xs text-gray-500">
+              <span className="text-gray-400">Auto-deduct daily at</span>
+              {editingTime ? (
+                <input
+                  type="time"
+                  value={timeDisplay}
+                  autoFocus
+                  onChange={(e) => setTimeDisplay(e.target.value)}
+                  onBlur={() => {
+                    setEditingTime(false);
+                    startTimeTransition(() => updateDeductionTime(timeDisplay));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    if (e.key === "Escape") { setTimeDisplay(deductionTime); setEditingTime(false); }
+                  }}
+                  className="rounded border border-blue-400 px-1 py-0.5 text-xs focus:outline-none"
+                />
+              ) : (
+                <button
+                  onClick={() => setEditingTime(true)}
+                  className="font-medium text-gray-700 hover:text-blue-600"
+                >
+                  {timeDisplay}
+                </button>
+              )}
+              <button
+                onClick={() => startTimeTransition(() => triggerDeductionNow())}
+                title="Run deduction now"
+                className="ml-1 text-gray-300 hover:text-blue-500"
+              >
+                ▶
+              </button>
+            </div>
           </div>
 
           {totalCostPerDay > 0 && (
@@ -562,28 +565,9 @@ export default function SupplementsClient({
 
               const anyTakingDaily = s.persons.some((sp) => sp.takingDaily);
 
-              const contributions: PersonContribution[] = s.persons
+              const combinedUnitsPerDay = s.persons
                 .filter((sp) => sp.takingDaily && sp.unitsPerDay)
-                .map((sp) => ({ startDate: sp.startDate, unitsPerDay: sp.unitsPerDay! }));
-
-              const packageSetAtKey = s.packageSetAt ? s.packageSetAt.split("T")[0] : null;
-              const todayKey = new Date().toISOString().split("T")[0];
-              const skippedUnits = packageSetAtKey
-                ? skippedIntakes
-                    .filter((si) => {
-                      if (si.supplementId !== s.id) return false;
-                      if (si.date < packageSetAtKey || si.date > todayKey) return false;
-                      const sp = s.persons.find((p) => p.personId === si.personId);
-                      if (!sp) return false;
-                      const personKey = sp.startDate ? sp.startDate.split("T")[0] : null;
-                      const effectiveKey = personKey && personKey > packageSetAtKey ? personKey : packageSetAtKey;
-                      return si.date >= effectiveKey;
-                    })
-                    .reduce((sum, si) => {
-                      const sp = s.persons.find((p) => p.personId === si.personId);
-                      return sum + (sp?.unitsPerDay ?? 0);
-                    }, 0)
-                : 0;
+                .reduce((sum, sp) => sum + (sp.unitsPerDay ?? 0), 0);
 
               return (
                 <div
@@ -653,9 +637,7 @@ export default function SupplementsClient({
                       id={s.id}
                       packageUnits={pkgUnits}
                       amountOfUnits={s.amountOfUnits}
-                      packageSetAt={s.packageSetAt}
-                      contributions={contributions}
-                      skippedUnits={skippedUnits}
+                      combinedUnitsPerDay={combinedUnitsPerDay}
                     />
                   </div>
                 </div>

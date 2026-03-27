@@ -18,7 +18,6 @@ function parseSupplementFormData(formData: FormData) {
     costPerPackage: parseFloat(formData.get("costPerPackage") as string),
     unitsLeft: amountOfUnits * amountOfPackages,
     packageUnits: JSON.stringify(Array(amountOfPackages).fill(amountOfUnits)),
-    packageSetAt: new Date(),
   };
 }
 
@@ -50,7 +49,6 @@ export async function updatePackageUnits(id: number, units: number[]) {
       packageUnits: JSON.stringify(units),
       unitsLeft: units.reduce((a, b) => a + b, 0),
       amountOfPackages: units.length,
-      packageSetAt: new Date(),
     },
   });
   revalidatePath("/");
@@ -113,6 +111,25 @@ export async function setAllTakingDaily(value: boolean) {
 }
 
 // ── SkippedIntake ──────────────────────────────────────────────────────────────
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+export async function updateDeductionTime(time: string) {
+  await prisma.settings.upsert({
+    where: { key: "deductionTime" },
+    create: { key: "deductionTime", value: time },
+    update: { value: time },
+  });
+  const { reschedule } = await import("@/lib/scheduler");
+  reschedule(time);
+  revalidatePath("/");
+}
+
+export async function triggerDeductionNow() {
+  const { runDailyDeduction } = await import("@/lib/scheduler");
+  await runDailyDeduction();
+  revalidatePath("/");
+}
 
 export async function skipIntake(dateStr: string, personId: number, supplementId: number) {
   const date = new Date(dateStr + "T00:00:00.000Z");

@@ -14,11 +14,13 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "next": "15.1.0",
+    "node-cron": "^4.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^8",
