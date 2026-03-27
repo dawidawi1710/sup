@@ -59,6 +59,18 @@ type DeductionLogEntry = {
   unitsDeducted: number;
 };
 
+// ── Decorative dots motif ─────────────────────────────────────────────────────
+
+function Dots({ style }: { style?: React.CSSProperties }) {
+  return (
+    <span className="pointer-events-none select-none" aria-hidden style={{ position: "relative", display: "inline-block", width: 24, ...style }}>
+      <span style={{ position: "absolute", top: -4, left: 2, width: 4, height: 4, borderRadius: "50%", background: "#0a0a0a", opacity: 0.18 }} />
+      <span style={{ position: "absolute", top: 6, left: 14, width: 5, height: 5, borderRadius: "50%", background: "#0a0a0a", opacity: 0.12 }} />
+      <span style={{ position: "absolute", top: -2, left: 20, width: 3, height: 3, borderRadius: "50%", background: "#0a0a0a", opacity: 0.20 }} />
+    </span>
+  );
+}
+
 // ── PersonToggle ──────────────────────────────────────────────────────────────
 
 function PersonToggle({
@@ -87,13 +99,17 @@ function PersonToggle({
     <button
       onClick={handleToggle}
       aria-label="Toggle taking daily"
-      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
-        optimistic ? "bg-green-500" : "bg-gray-200"
+      className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 transition-all duration-200 focus:outline-none active:scale-95 ${
+        optimistic
+          ? "border-[#0a0a0a] bg-[#0a0a0a]"
+          : "border-[#0a0a0a] bg-white"
       }`}
     >
-      <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
-        optimistic ? "translate-x-3.5" : "translate-x-0.5"
-      }`} />
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full transition-transform duration-200 ${
+          optimistic ? "translate-x-4 bg-white shadow-sm" : "translate-x-0.5 bg-[#c8c8c8]"
+        }`}
+      />
     </button>
   );
 }
@@ -136,9 +152,15 @@ function PersonRow({
     : null;
 
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <PersonToggle personId={sp.personId} supplementId={sp.supplementId} value={sp.takingDaily} currentStartDate={sp.startDate} onDateSet={setDateDisplay} />
-      <span className={`w-20 truncate ${sp.takingDaily ? "text-gray-800 font-medium" : "text-gray-400"}`}>
+    <div className="flex items-center gap-3">
+      <PersonToggle
+        personId={sp.personId}
+        supplementId={sp.supplementId}
+        value={sp.takingDaily}
+        currentStartDate={sp.startDate}
+        onDateSet={setDateDisplay}
+      />
+      <span className={`w-16 truncate text-sm font-medium ${sp.takingDaily ? "text-[#0a0a0a]" : "text-[#a3a3a3]"}`}>
         {sp.person.name}
       </span>
       <input
@@ -149,23 +171,29 @@ function PersonRow({
         onChange={(e) => setDisplay(e.target.value)}
         onBlur={saveUnits}
         onKeyDown={(e) => e.key === "Enter" && saveUnits()}
-        className={`w-14 rounded border px-1.5 py-0.5 text-xs focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 ${
-          sp.takingDaily ? "border-gray-300 text-gray-800" : "border-gray-200 text-gray-400"
+        className={`h-9 w-20 rounded-lg border px-3 text-center text-sm transition-colors duration-150 focus:outline-none ${
+          sp.takingDaily
+            ? "border-[#e5e5e5] text-[#0a0a0a] focus:border-[#0a0a0a]"
+            : "border-[#f0f0f0] text-[#a3a3a3] focus:border-[#d4d4d4]"
         }`}
       />
-      <span className={`text-xs ${sp.takingDaily ? "text-gray-400" : "text-gray-300"}`}>units/day</span>
+      <span className={`text-sm ${sp.takingDaily ? "text-[#737373]" : "text-[#d4d4d4]"}`}>units/day</span>
       <input
         type="date"
         value={dateDisplay}
         onChange={(e) => setDateDisplay(e.target.value)}
         onBlur={saveDate}
         onKeyDown={(e) => e.key === "Enter" && saveDate()}
-        className={`ml-2 rounded border px-1.5 py-0.5 text-xs focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 ${
-          sp.takingDaily ? "border-gray-300 text-gray-800" : "border-gray-200 text-gray-400"
+        className={`h-9 w-36 rounded-lg border px-3 text-sm transition-colors duration-150 focus:outline-none ${
+          sp.takingDaily
+            ? "border-[#e5e5e5] text-[#0a0a0a] focus:border-[#0a0a0a]"
+            : "border-[#f0f0f0] text-[#a3a3a3] focus:border-[#d4d4d4]"
         }`}
       />
       {costPerDay != null && (
-        <span className="ml-auto text-gray-500">{costPerDay.toFixed(2)}€/day</span>
+        <span className="ml-auto text-sm font-semibold text-[#0a0a0a]">
+          {costPerDay.toFixed(2)}€/day
+        </span>
       )}
     </div>
   );
@@ -203,16 +231,28 @@ function PackageInputs({
   const pct = daysLeft != null
     ? Math.min(daysLeft / 30, 1)
     : maxTotal > 0 ? Math.min(total / maxTotal, 1) : 0;
-  const barColor = pct > 0.5 ? "bg-green-400" : pct > 0.2 ? "bg-yellow-400" : "bg-red-400";
-  const barWidth = pct === 0 ? "100%" : `${pct * 100}%`;
+  const isLowStock = daysLeft !== null ? daysLeft < 14 : pct < 0.3;
+  const barFill = pct === 0 ? "bg-[#ef4444]" : isLowStock ? "bg-amber-400" : "bg-[#0a0a0a]";
 
   return (
-    <div className="mt-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+    <div className="border-t border-[#f0f0f0] pt-5">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         {display.map((v, i) => (
-          <div key={i} className="flex items-center gap-1 text-xs text-gray-500">
-            {display.length > 1 && <span className="w-8">Pkg {i + 1}:</span>}
-            {display.length === 1 && <span>Units left:</span>}
+          <div key={i} className="flex items-center gap-2">
+            {display.length > 1 && (
+              <span className="text-xs font-medium text-[#737373]">Pkg {i + 1}:</span>
+            )}
+            {display.length === 1 && (
+              <span className="text-xs text-[#737373]">Units left:</span>
+            )}
+            {display.length > 1 && (
+              <div className="h-1 w-16 overflow-hidden rounded-full bg-[#f0f0f0]">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${barFill}`}
+                  style={{ width: `${Math.min(((parseInt(v) || 0) / amountOfUnits) * 100, 100)}%` }}
+                />
+              </div>
+            )}
             <input
               type="number"
               min={0}
@@ -221,9 +261,9 @@ function PackageInputs({
               onChange={(e) => handleChange(i, e.target.value)}
               onBlur={() => handleBlur(i)}
               onKeyDown={(e) => e.key === "Enter" && handleBlur(i)}
-              className="w-16 rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-800 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="h-8 w-16 rounded-lg border border-[#e5e5e5] px-2 text-center text-sm text-[#0a0a0a] transition-colors duration-150 focus:border-[#0a0a0a] focus:outline-none"
             />
-            <span className="text-gray-400">/ {amountOfUnits}</span>
+            <span className="text-sm text-[#a3a3a3]">/ {amountOfUnits}</span>
             {display.length > 1 && (
               <button
                 onClick={() => {
@@ -233,7 +273,7 @@ function PackageInputs({
                     updatePackageUnits(id, nextDisplay.map((v) => parseInt(v) || 0))
                   );
                 }}
-                className="ml-1 text-gray-300 hover:text-red-400"
+                className="text-[#d4d4d4] transition-colors hover:text-[#ef4444]"
                 aria-label={`Delete package ${i + 1}`}
               >
                 ×
@@ -241,13 +281,26 @@ function PackageInputs({
             )}
           </div>
         ))}
-        {display.length > 1 && <span className="text-xs text-gray-400">= {total} units</span>}
+        {display.length > 1 && (
+          <span className="text-sm font-medium text-[#525252]">= {total} units</span>
+        )}
         {daysLeft != null && (
-          <span className="text-xs font-medium text-gray-600">{daysLeft} days left</span>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              isLowStock
+                ? "bg-amber-50 text-amber-600 ring-1 ring-amber-200"
+                : "bg-[#fafafa] text-[#0a0a0a] ring-1 ring-[#f0f0f0]"
+            }`}
+          >
+            {daysLeft} days left
+          </span>
         )}
       </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-b-lg bg-gray-200">
-        <div className={`h-full transition-all ${barColor}`} style={{ width: barWidth }} />
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#f0f0f0]">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ease-out ${barFill}`}
+          style={{ width: pct === 0 ? "100%" : `${pct * 100}%` }}
+        />
       </div>
     </div>
   );
@@ -341,12 +394,13 @@ function PersonManager({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">People:</span>
+      <span className="text-sm font-medium text-[#525252]">Active:</span>
       {persons.map((p) => {
         const hasActiveSups = supplements.some((s) =>
           s.persons.some((sp) => sp.personId === p.id && sp.takingDaily && sp.unitsPerDay)
         );
         const takenToday = deductedToday.some((d) => d.personId === p.id);
+        const dotColor = takenToday ? "#10b981" : hasActiveSups ? "#f59e0b" : "#d4d4d4";
 
         return editingId === p.id ? (
           <input
@@ -359,28 +413,36 @@ function PersonManager({
               if (e.key === "Enter") handleRename(p.id);
               if (e.key === "Escape") setEditingId(null);
             }}
-            className="w-24 rounded border border-blue-400 px-2 py-0.5 text-xs focus:outline-none"
+            className="h-8 w-24 rounded-full border border-[#0a0a0a] px-3 text-sm focus:outline-none"
           />
         ) : (
           <span
             key={p.id}
-            className={`group flex items-center gap-1 rounded-full px-3 py-1 text-xs ${
-              takenToday ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"
+            className={`group flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium ${
+              takenToday
+                ? "border border-[#0a0a0a] bg-white text-[#0a0a0a]"
+                : "bg-[#f5f5f5] text-[#525252]"
             }`}
           >
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: dotColor }}
+            />
             <button
               onClick={() => { setEditingId(p.id); setEditName(p.name); }}
-              className="hover:opacity-80"
+              className="hover:opacity-70 transition-opacity"
             >
               {p.name}
             </button>
             {hasActiveSups && (
               takenToday ? (
                 <>
-                  <span className="text-green-500" title={`Auto-deducts tomorrow at ${deductionTime}`}>✓</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[#10b981]">
+                    TAKEN
+                  </span>
                   <button
                     onClick={() => startTransition(() => revertAllForPerson(p.id))}
-                    className="text-green-400 underline hover:text-red-500 text-xs"
+                    className="text-xs text-[#a3a3a3] underline transition-colors hover:text-[#0a0a0a]"
                     title="Undo today's deduction"
                   >
                     undo
@@ -389,7 +451,7 @@ function PersonManager({
               ) : (
                 <button
                   onClick={() => startTransition(() => deductAllForPerson(p.id))}
-                  className="rounded bg-blue-500 px-1.5 py-0.5 text-white hover:bg-blue-600 text-xs leading-none"
+                  className="rounded-full bg-[#0a0a0a] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white transition-opacity hover:opacity-70"
                   title={`Deduct all supplements for ${p.name} · auto-deducts at ${deductionTime}`}
                 >
                   Take
@@ -398,7 +460,7 @@ function PersonManager({
             )}
             <button
               onClick={() => downloadIntakeFile(p, supplements)}
-              className="text-gray-300 hover:text-blue-400"
+              className="text-[#d4d4d4] transition-colors hover:text-[#737373]"
               aria-label={`Download intake report for ${p.name}`}
               title="Download intake report"
             >
@@ -407,7 +469,7 @@ function PersonManager({
             {persons.length > 1 && (
               <button
                 onClick={() => setDeletingId(p.id)}
-                className="text-gray-300 hover:text-red-400"
+                className="text-[#d4d4d4] transition-colors hover:text-[#ef4444]"
                 aria-label={`Delete ${p.name}`}
               >
                 ×
@@ -427,12 +489,12 @@ function PersonManager({
             if (e.key === "Escape") { setAdding(false); setNewName(""); }
           }}
           placeholder="Name…"
-          className="w-24 rounded border border-blue-400 px-2 py-0.5 text-xs focus:outline-none"
+          className="h-8 w-24 rounded-full border border-[#0a0a0a] px-3 text-sm focus:outline-none"
         />
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-400 hover:border-gray-400 hover:text-gray-600"
+          className="rounded-full border border-dashed border-[#d4d4d4] px-4 py-1.5 text-sm font-medium text-[#737373] transition-all hover:border-solid hover:border-[#737373] hover:text-[#0a0a0a]"
         >
           + Add person
         </button>
@@ -441,29 +503,29 @@ function PersonManager({
       {deletingId !== null && (() => {
         const person = persons.find((p) => p.id === deletingId)!;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
-              <h2 className="mb-2 text-lg font-semibold">Delete {person.name}?</h2>
-              <p className="mb-6 text-sm text-gray-500">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-[20px] bg-white p-8 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_12px_32px_rgba(0,0,0,0.08)]">
+              <h2 className="mb-2 text-lg font-semibold text-[#0a0a0a]">Delete {person.name}?</h2>
+              <p className="mb-8 text-sm text-[#737373]">
                 This will permanently remove {person.name} and all their supplement associations.
               </p>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDeletingId(null)}
-                  className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
+              <div className="flex flex-col gap-3">
                 <button
                   type="button"
                   onClick={() => {
                     setDeletingId(null);
                     startTransition(() => deletePerson(deletingId));
                   }}
-                  className="rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+                  className="h-13 w-full rounded-xl bg-[#ef4444] text-sm font-semibold text-white transition-shadow hover:shadow-[0_4px_12px_rgba(239,68,68,0.3)]"
                 >
                   Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletingId(null)}
+                  className="text-sm text-[#737373] transition-colors hover:text-[#0a0a0a]"
+                >
+                  Cancel
                 </button>
               </div>
             </div>
@@ -507,25 +569,22 @@ export default function SupplementsClient({
 
   const router = useRouter();
 
-  // Poll every 60 s so any server-side change (auto-deduction, other tabs) is reflected
   useEffect(() => {
     const interval = setInterval(() => router.refresh(), 60_000);
     return () => clearInterval(interval);
   }, [router]);
 
-  // Fire an extra refresh precisely at the scheduled deduction time
   useEffect(() => {
     const [h, m] = deductionTime.split(":").map(Number);
     const now = new Date();
     const next = new Date(now);
-    next.setHours(h, m, 5, 0); // 5 s after deduction fires
+    next.setHours(h, m, 5, 0);
     if (next <= now) next.setDate(next.getDate() + 1);
     const ms = next.getTime() - now.getTime();
     const timeout = setTimeout(() => router.refresh(), ms);
     return () => clearTimeout(timeout);
   }, [deductionTime, router]);
 
-  // Per-person daily cost
   const personCosts = persons.map((person) => {
     const cost = supplements.reduce((sum, s) => {
       const sp = s.persons.find((sp) => sp.personId === person.id);
@@ -536,85 +595,278 @@ export default function SupplementsClient({
   });
   const totalCostPerDay = personCosts.reduce((sum, { cost }) => sum + cost, 0);
 
-
   return (
     <>
-      {/* Top bar */}
-      <div className="flex w-full max-w-2xl flex-col gap-3">
-        <PersonManager persons={persons} supplements={supplements} deductedToday={deductedToday} deductionTime={deductionTime} />
-
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCreating(true)}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-            >
-              New supplement
-            </button>
-            <button
-              onClick={() => setShowCalendar(true)}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-            >
-              Calendar
-            </button>
-            <div className="flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-2 text-xs text-gray-500">
-              <span className="text-gray-400">Auto-deduct daily at</span>
-              {editingTime ? (
-                <input
-                  type="time"
-                  value={timeDisplay}
-                  autoFocus
-                  onChange={(e) => setTimeDisplay(e.target.value)}
-                  onBlur={() => {
-                    setEditingTime(false);
-                    startTimeTransition(() => updateDeductionTime(timeDisplay));
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                    if (e.key === "Escape") { setTimeDisplay(deductionTime); setEditingTime(false); }
-                  }}
-                  className="rounded border border-blue-400 px-1 py-0.5 text-xs focus:outline-none"
-                />
-              ) : (
-                <button
-                  onClick={() => setEditingTime(true)}
-                  className="font-medium text-gray-700 hover:text-blue-600"
-                >
-                  {timeDisplay}
-                </button>
-              )}
-            </div>
+      {/* Navigation Header */}
+      <header className="sticky top-0 z-40 flex h-20 w-full items-center border-b border-[#e5e5e5] bg-white">
+        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between px-8">
+          {/* Wordmark + dots */}
+          <div className="relative flex items-center gap-1">
+            <span className="text-xl font-semibold tracking-tight text-[#0a0a0a]">
+              SUPPLEMENT TRACKER
+            </span>
+            <Dots />
           </div>
 
+          {/* Cost summary panel */}
           {totalCostPerDay > 0 && (
-            <div className="text-right text-xs">
-              <div className="mb-1 flex justify-end gap-4 text-gray-400 font-medium uppercase tracking-wide">
-                <span>/ day</span>
-                <span>/ 30 days</span>
+            <div className="flex items-center gap-6 rounded-xl border border-[#f0f0f0] bg-white px-6 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+              <div className="text-center">
+                <p className="text-xs text-[#737373]">Daily</p>
+                <p className="text-2xl font-semibold leading-tight text-[#0a0a0a]">
+                  €{totalCostPerDay.toFixed(2)}
+                </p>
               </div>
-              {personCosts.filter(({ cost }) => cost > 0).map(({ person, cost }) => (
-                <div key={person.id} className="flex justify-between gap-4 text-gray-500">
-                  <span className="font-medium text-gray-700">{person.name}</span>
-                  <span className="flex gap-4">
-                    <span className="w-16 text-right">{cost.toFixed(2)}€</span>
-                    <span className="w-16 text-right">{(cost * 30).toFixed(2)}€</span>
-                  </span>
-                </div>
-              ))}
-              {persons.length > 1 && (
-                <div className="flex justify-between gap-4 font-medium text-gray-800 border-t border-gray-200 mt-1 pt-1">
-                  <span>Total</span>
-                  <span className="flex gap-4">
-                    <span className="w-16 text-right">{totalCostPerDay.toFixed(2)}€</span>
-                    <span className="w-16 text-right">{(totalCostPerDay * 30).toFixed(2)}€</span>
-                  </span>
-                </div>
-              )}
+              <div className="h-8 w-px bg-[#e5e5e5]" />
+              <div className="text-center">
+                <p className="text-xs text-[#737373]">30 Days</p>
+                <p className="text-2xl font-semibold leading-tight text-[#0a0a0a]">
+                  €{(totalCostPerDay * 30).toFixed(2)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Avatar */}
+          {persons.length > 0 && (
+            <div className="flex cursor-default items-center gap-2 group">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f5] text-sm font-medium text-[#525252] transition-transform group-hover:scale-105">
+                {persons[0].name[0].toUpperCase()}
+              </div>
+              <span className="text-sm font-medium text-[#0a0a0a]">{persons[0].name}</span>
             </div>
           )}
         </div>
+      </header>
+
+      {/* Main content */}
+      <div className="mx-auto w-full max-w-[1200px] px-8 py-8">
+
+        {/* Persons row */}
+        <div className="mb-6">
+          <PersonManager
+            persons={persons}
+            supplements={supplements}
+            deductedToday={deductedToday}
+            deductionTime={deductionTime}
+          />
+        </div>
+
+        {/* Action bar */}
+        <div className="mb-12 flex items-center gap-3">
+          <button
+            onClick={() => setCreating(true)}
+            className="h-11 rounded-xl bg-[#0a0a0a] px-5 text-sm font-semibold text-white transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+          >
+            New supplement
+          </button>
+          <button
+            onClick={() => setShowCalendar(true)}
+            className="h-11 rounded-xl border border-[#e5e5e5] bg-white px-5 text-sm text-[#0a0a0a] transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+          >
+            Calendar
+          </button>
+          {/* Auto-deduct time pill */}
+          <div className="flex items-center gap-2 rounded-full bg-[#f5f5f5] px-4 py-2 text-sm text-[#525252]">
+            <svg className="h-4 w-4 shrink-0 text-[#737373]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {editingTime ? (
+              <input
+                type="time"
+                value={timeDisplay}
+                autoFocus
+                onChange={(e) => setTimeDisplay(e.target.value)}
+                onBlur={() => {
+                  setEditingTime(false);
+                  startTimeTransition(() => updateDeductionTime(timeDisplay));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                  if (e.key === "Escape") { setTimeDisplay(deductionTime); setEditingTime(false); }
+                }}
+                className="w-20 rounded border border-[#0a0a0a] bg-transparent px-1 text-sm focus:outline-none"
+              />
+            ) : (
+              <button
+                onClick={() => setEditingTime(true)}
+                className="font-medium text-[#0a0a0a] transition-opacity hover:opacity-60"
+              >
+                {timeDisplay}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Supplements section */}
+        {orderedSupplements.length > 0 && (
+          <section>
+            <div className="relative mb-10 flex items-center gap-2">
+              <h2 className="text-[28px] font-semibold tracking-[-0.02em] text-[#0a0a0a]">
+                Supplements
+              </h2>
+              <Dots style={{ top: -6 }} />
+            </div>
+            <div className="flex flex-col gap-5">
+              {orderedSupplements.map((s, index) => {
+                const pkgUnits: number[] = s.packageUnits
+                  ? JSON.parse(s.packageUnits)
+                  : Array(s.amountOfPackages).fill(s.amountOfUnits);
+
+                const combinedUnitsPerDay = s.persons
+                  .filter((sp) => sp.takingDaily && sp.unitsPerDay)
+                  .reduce((sum, sp) => sum + (sp.unitsPerDay ?? 0), 0);
+
+                const totalUnits = pkgUnits.reduce((a, b) => a + b, 0);
+                const daysLeft = combinedUnitsPerDay > 0 ? Math.floor(totalUnits / combinedUnitsPerDay) : null;
+                const isLowStock = daysLeft !== null && daysLeft < 14;
+
+                const isDragging = dragIndex === index;
+                const isDragOver = dragOverIndex === index;
+
+                return (
+                  <div
+                    key={s.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragIndex(index);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (dragOverIndex !== index) setDragOverIndex(index);
+                    }}
+                    onDragLeave={() => setDragOverIndex(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragIndex === null || dragIndex === index) {
+                        setDragIndex(null);
+                        setDragOverIndex(null);
+                        return;
+                      }
+                      const next = [...orderedSupplements];
+                      const [moved] = next.splice(dragIndex, 1);
+                      next.splice(index, 0, moved);
+                      setOrderedSupplements(next);
+                      setDragIndex(null);
+                      setDragOverIndex(null);
+                      startReorderTransition(() => reorderSupplements(next.map((s) => s.id)));
+                    }}
+                    onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                    className={`group rounded-2xl bg-white transition-all duration-150 ${
+                      isLowStock
+                        ? "border border-[#f5f5f5] border-l-2 border-l-amber-400"
+                        : "border border-[#f5f5f5]"
+                    } shadow-[0_1px_3px_rgba(0,0,0,0.02),0_8px_24px_rgba(0,0,0,0.03)] hover:-translate-y-px hover:shadow-[0_2px_8px_rgba(0,0,0,0.04),0_12px_32px_rgba(0,0,0,0.06)] ${
+                      isDragging ? "opacity-40" : ""
+                    } ${isDragOver ? "ring-2 ring-[#0a0a0a] ring-offset-2" : ""}`}
+                  >
+                    <div className="p-6">
+                      {/* Card header */}
+                      <div className="flex items-start gap-3">
+                        {/* Drag handle */}
+                        <div
+                          className="mt-1 shrink-0 cursor-grab select-none text-[#d4d4d4] transition-colors hover:text-[#a3a3a3] active:cursor-grabbing"
+                          title="Drag to reorder"
+                        >
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 16 16">
+                            <circle cx="5" cy="4" r="1.5" /><circle cx="11" cy="4" r="1.5" />
+                            <circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" />
+                            <circle cx="5" cy="12" r="1.5" /><circle cx="11" cy="12" r="1.5" />
+                          </svg>
+                        </div>
+
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-lg font-semibold tracking-[-0.01em] text-[#0a0a0a]">
+                                  {s.activeIngredient}
+                                </h3>
+                                {isLowStock && (
+                                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-600 ring-1 ring-amber-200">
+                                    Low stock
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 text-sm text-[#737373]">
+                                {s.brand} · {s.dosePerUnit} · {s.amountOfUnits} units · {s.costPerPackage}€/pkg
+                                {s.source.startsWith("http") && (
+                                  <>
+                                    {" · "}
+                                    <a
+                                      href={s.source}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="underline-offset-2 transition-opacity hover:underline hover:opacity-70"
+                                    >
+                                      Reorder ↗
+                                    </a>
+                                  </>
+                                )}
+                                {!s.source.startsWith("http") && s.source && (
+                                  <> · {s.source}</>
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-3">
+                              <button
+                                onClick={() => setEditing(s)}
+                                className="text-sm font-medium text-[#737373] transition-colors hover:text-[#0a0a0a]"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setDeleting(s.id)}
+                                className="text-lg leading-none text-[#d4d4d4] transition-colors hover:text-[#ef4444]"
+                                aria-label="Delete supplement"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Per-person rows */}
+                          <div className="mt-5 flex flex-col gap-4 border-t border-[#f5f5f5] pt-4">
+                            {persons.map((person) => {
+                              const sp = s.persons.find((sp) => sp.personId === person.id);
+                              const defaultSp: SupplementPerson = {
+                                id: 0, personId: person.id, supplementId: s.id,
+                                takingDaily: false, unitsPerDay: null, startDate: null, person,
+                              };
+                              return (
+                                <PersonRow
+                                  key={person.id}
+                                  sp={sp ?? defaultSp}
+                                  costPerUnit={s.costPerPackage / s.amountOfUnits}
+                                />
+                              );
+                            })}
+                          </div>
+
+                          {/* Progress / package inputs */}
+                          <div className="mt-4">
+                            <PackageInputs
+                              id={s.id}
+                              packageUnits={pkgUnits}
+                              amountOfUnits={s.amountOfUnits}
+                              combinedUnitsPerDay={combinedUnitsPerDay}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
 
+      {/* Modals */}
       {creating && <NewSupplementModal onClose={() => setCreating(false)} />}
       {editing && <NewSupplementModal initial={editing} onClose={() => setEditing(null)} />}
       {deleting !== null && <DeleteConfirmModal id={deleting} onClose={() => setDeleting(null)} />}
@@ -626,135 +878,6 @@ export default function SupplementsClient({
           deductionLogs={allDeductionLogs}
           onClose={() => setShowCalendar(false)}
         />
-      )}
-
-      {orderedSupplements.length > 0 && (
-        <section className="mt-6 w-full max-w-2xl">
-          <h2 className="mb-3 text-lg font-semibold">Existing supplements</h2>
-          <div className="flex flex-col gap-3">
-            {orderedSupplements.map((s, index) => {
-              const pkgUnits: number[] = s.packageUnits
-                ? JSON.parse(s.packageUnits)
-                : Array(s.amountOfPackages).fill(s.amountOfUnits);
-
-              const anyTakingDaily = s.persons.some((sp) => sp.takingDaily);
-
-              const combinedUnitsPerDay = s.persons
-                .filter((sp) => sp.takingDaily && sp.unitsPerDay)
-                .reduce((sum, sp) => sum + (sp.unitsPerDay ?? 0), 0);
-
-              const isDragging = dragIndex === index;
-              const isDragOver = dragOverIndex === index;
-
-              return (
-                <div
-                  key={s.id}
-                  draggable
-                  onDragStart={(e) => {
-                    setDragIndex(index);
-                    e.dataTransfer.effectAllowed = "move";
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    if (dragOverIndex !== index) setDragOverIndex(index);
-                  }}
-                  onDragLeave={() => setDragOverIndex(null)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (dragIndex === null || dragIndex === index) {
-                      setDragIndex(null);
-                      setDragOverIndex(null);
-                      return;
-                    }
-                    const next = [...orderedSupplements];
-                    const [moved] = next.splice(dragIndex, 1);
-                    next.splice(index, 0, moved);
-                    setOrderedSupplements(next);
-                    setDragIndex(null);
-                    setDragOverIndex(null);
-                    startReorderTransition(() => reorderSupplements(next.map((s) => s.id)));
-                  }}
-                  onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                  className={`rounded-lg border text-sm transition-colors ${
-                    anyTakingDaily ? "border-green-300 bg-green-50" : "border-gray-200 bg-white"
-                  } ${isDragging ? "opacity-40" : ""} ${isDragOver ? "ring-2 ring-blue-400 ring-offset-1" : ""}`}
-                >
-                  <div className="flex items-start justify-between gap-4 p-4 pb-2">
-                    <div
-                      className="mt-0.5 shrink-0 cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing select-none"
-                      title="Drag to reorder"
-                    >
-                      ⠿
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{s.activeIngredient} — {s.brand}</p>
-                      <p className="text-gray-600">
-                        {s.dosePerUnit} · {s.amountOfUnits} units · {s.amountOfPackages} pkg · {s.costPerPackage}€/pkg
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        {s.source.startsWith("http") ? (
-                          <a
-                            href={s.source}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 underline hover:text-blue-600"
-                          >
-                            Reorder ↗
-                          </a>
-                        ) : (
-                          <>Source: {s.source}</>
-                        )}
-                      </p>
-
-                      {/* Per-person rows */}
-                      <div className="mt-3 flex flex-col gap-1.5 border-t border-gray-100 pt-2">
-                        {persons.map((person) => {
-                          const sp = s.persons.find((sp) => sp.personId === person.id);
-                          const defaultSp: SupplementPerson = {
-                            id: 0, personId: person.id, supplementId: s.id,
-                            takingDaily: false, unitsPerDay: null, startDate: null, person,
-                          };
-                          return (
-                            <PersonRow
-                              key={person.id}
-                              sp={sp ?? defaultSp}
-                              costPerUnit={s.costPerPackage / s.amountOfUnits}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        onClick={() => setEditing(s)}
-                        className="rounded-md border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => setDeleting(s.id)}
-                        className="rounded-md border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="px-4 pb-0">
-                    <PackageInputs
-                      id={s.id}
-                      packageUnits={pkgUnits}
-                      amountOfUnits={s.amountOfUnits}
-                      combinedUnitsPerDay={combinedUnitsPerDay}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
       )}
     </>
   );

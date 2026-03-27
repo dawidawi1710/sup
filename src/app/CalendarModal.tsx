@@ -160,13 +160,13 @@ export default function CalendarModal({ persons, supplements, skippedIntakes, de
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-3xl rounded-lg bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-3xl rounded-[20px] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08),0_12px_32px_rgba(0,0,0,0.08)]">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-base font-semibold">Supplement calendar</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <h2 className="text-xl font-semibold tracking-[-0.01em] text-[#0a0a0a]">Supplement calendar</h2>
+          <button onClick={onClose} className="text-xl leading-none text-[#a3a3a3] transition-colors hover:text-[#0a0a0a]">×</button>
         </div>
 
         <div className="flex divide-x">

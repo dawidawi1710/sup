@@ -47,7 +47,7 @@ export default async function Home() {
   }));
 
   return (
-    <main className="flex min-h-screen flex-col items-center px-8 py-12">
+    <main className="min-h-screen bg-white">
       <SupplementsClient
         persons={persons}
         supplements={serialized}
