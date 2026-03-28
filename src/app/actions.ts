@@ -2,6 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
+
+async function getUserId(): Promise<string> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return session.user.id;
+}
 
 // ── Supplement ────────────────────────────────────────────────────────────────
 
@@ -22,13 +29,15 @@ function parseSupplementFormData(formData: FormData) {
 }
 
 export async function createSupplement(formData: FormData) {
+  const userId = await getUserId();
   const [persons, maxOrder] = await Promise.all([
-    prisma.person.findMany({ select: { id: true } }),
+    prisma.person.findMany({ where: { userId }, select: { id: true } }),
     prisma.supplement.aggregate({ _max: { order: true } }),
   ]);
   await prisma.supplement.create({
     data: {
       ...parseSupplementFormData(formData),
+      userId,
       order: (maxOrder._max.order ?? 0) + 1,
       persons: { create: persons.map((p) => ({ personId: p.id })) },
     },
@@ -44,18 +53,21 @@ export async function reorderSupplements(ids: number[]) {
 }
 
 export async function updateSupplement(id: number, formData: FormData) {
-  await prisma.supplement.update({ where: { id }, data: parseSupplementFormData(formData) });
+  const userId = await getUserId();
+  await prisma.supplement.update({ where: { id, userId }, data: parseSupplementFormData(formData) });
   revalidatePath("/");
 }
 
 export async function deleteSupplement(id: number) {
-  await prisma.supplement.delete({ where: { id } });
+  const userId = await getUserId();
+  await prisma.supplement.delete({ where: { id, userId } });
   revalidatePath("/");
 }
 
 export async function updatePackageUnits(id: number, units: number[]) {
+  const userId = await getUserId();
   await prisma.supplement.update({
-    where: { id },
+    where: { id, userId },
     data: {
       packageUnits: JSON.stringify(units),
       unitsLeft: units.reduce((a, b) => a + b, 0),
@@ -68,10 +80,12 @@ export async function updatePackageUnits(id: number, units: number[]) {
 // ── Person ────────────────────────────────────────────────────────────────────
 
 export async function createPerson(name: string) {
-  const supplements = await prisma.supplement.findMany({ select: { id: true } });
+  const userId = await getUserId();
+  const supplements = await prisma.supplement.findMany({ where: { userId }, select: { id: true } });
   await prisma.person.create({
     data: {
       name,
+      userId,
       supplementPersons: { create: supplements.map((s) => ({ supplementId: s.id })) },
     },
   });
@@ -79,12 +93,14 @@ export async function createPerson(name: string) {
 }
 
 export async function deletePerson(id: number) {
-  await prisma.person.delete({ where: { id } });
+  const userId = await getUserId();
+  await prisma.person.delete({ where: { id, userId } });
   revalidatePath("/");
 }
 
 export async function renamePerson(id: number, name: string) {
-  await prisma.person.update({ where: { id }, data: { name } });
+  const userId = await getUserId();
+  await prisma.person.update({ where: { id, userId }, data: { name } });
   revalidatePath("/");
 }
 
@@ -104,11 +120,13 @@ export async function updateSupplementPerson(
 }
 
 export async function setAllTakingDaily(value: boolean) {
-  await prisma.supplementPerson.updateMany({ data: { takingDaily: value } });
+  const userId = await getUserId();
+  await prisma.supplementPerson.updateMany({
+    where: { person: { userId } },
+    data: { takingDaily: value },
+  });
   revalidatePath("/");
 }
-
-// ── SkippedIntake ──────────────────────────────────────────────────────────────
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 

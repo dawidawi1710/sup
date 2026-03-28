@@ -1,19 +1,26 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import SupplementsClient from "./SupplementsClient";
 
 export default async function Home() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/api/auth/signin");
+  const userId = session.user.id;
+
   const todayDate = new Date(new Date().toISOString().split("T")[0] + "T00:00:00.000Z");
 
   const [persons, supplements, rawSkipped, deductionTimeSetting, rawDeductedToday, rawAllLogs] = await Promise.all([
-    prisma.person.findMany({ orderBy: { id: "asc" } }),
+    prisma.person.findMany({ where: { userId }, orderBy: { id: "asc" } }),
     prisma.supplement.findMany({
+      where: { userId },
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
       include: { persons: { include: { person: true } } },
     }),
-    prisma.skippedIntake.findMany(),
+    prisma.skippedIntake.findMany({ where: { person: { userId } } }),
     prisma.settings.findUnique({ where: { key: "deductionTime" } }),
-    prisma.deductionLog.findMany({ where: { date: todayDate } }),
-    prisma.deductionLog.findMany(),
+    prisma.deductionLog.findMany({ where: { date: todayDate, person: { userId } } }),
+    prisma.deductionLog.findMany({ where: { person: { userId } } }),
   ]);
 
   const serialized = supplements.map((s) => ({
