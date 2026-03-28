@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect, useRef, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import Image from "next/image";
 import NewSupplementModal from "./NewSupplementModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import CalendarModal from "./CalendarModal";
@@ -10,6 +11,7 @@ import {
   updateSupplementPerson,
   updatePackageUnits,
   updateDeductionTime,
+  updateNotificationEmail,
   reorderSupplements,
   createPerson,
   deletePerson,
@@ -637,7 +639,7 @@ export default function SupplementsClient({
   deductedToday,
   allDeductionLogs,
 }: {
-  user: { name: string | null; image: string | null };
+  user: { name: string | null; image: string | null; email: string | null; notificationEmail: string | null };
   persons: Person[];
   supplements: Supplement[];
   skippedIntakes: SkippedIntake[];
@@ -657,6 +659,9 @@ export default function SupplementsClient({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [, startReorderTransition] = useTransition();
+  const [notifEmail, setNotifEmail] = useState(user.notificationEmail ?? "");
+  const [editingNotifEmail, setEditingNotifEmail] = useState(false);
+  const [, startNotifTransition] = useTransition();
 
   useEffect(() => {
     setOrderedSupplements(supplements);
@@ -710,7 +715,7 @@ export default function SupplementsClient({
             className="flex items-center gap-2 rounded-full p-1 transition-opacity hover:opacity-70"
           >
             {user.image ? (
-              <img src={user.image} alt={user.name ?? "User"} className="h-9 w-9 rounded-full" />
+              <Image src={user.image} alt={user.name ?? "User"} width={36} height={36} className="rounded-full" />
             ) : (
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f5f5f5] text-sm font-medium text-[#525252]">
                 {user.name?.[0]?.toUpperCase() ?? "?"}
@@ -806,7 +811,39 @@ export default function SupplementsClient({
                 </button>
               )}
             </div>
+          {/* Notification email pill */}
+          <div className="flex items-center gap-2 rounded-full bg-[#f5f5f5] px-4 py-2 text-sm text-[#525252]">
+            <svg className="h-4 w-4 shrink-0 text-[#737373]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+            {editingNotifEmail ? (
+              <input
+                type="email"
+                value={notifEmail}
+                autoFocus
+                placeholder={user.email ?? "email"}
+                onChange={(e) => setNotifEmail(e.target.value)}
+                onBlur={() => {
+                  setEditingNotifEmail(false);
+                  startNotifTransition(() => updateNotificationEmail(notifEmail || null));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                  if (e.key === "Escape") { setNotifEmail(user.notificationEmail ?? ""); setEditingNotifEmail(false); }
+                }}
+                className="w-44 rounded border border-[#0a0a0a] bg-transparent px-1 text-sm focus:outline-none"
+              />
+            ) : (
+              <button
+                onClick={() => setEditingNotifEmail(true)}
+                className="max-w-[180px] truncate font-medium text-[#0a0a0a] transition-opacity hover:opacity-60"
+                title={notifEmail || user.email || "Set notification email"}
+              >
+                {notifEmail || user.email || "Set email"}
+              </button>
+            )}
           </div>
+        </div>
 
           {/* Cost summary panel */}
           {totalCostPerDay > 0 && (

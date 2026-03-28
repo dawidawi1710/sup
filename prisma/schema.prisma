@@ -12,15 +12,16 @@ datasource db {
 }
 
 model User {
-  id            String       @id @default(cuid())
-  name          String?
-  email         String?      @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  persons       Person[]
-  supplements   Supplement[]
+  id                String       @id @default(cuid())
+  name              String?
+  email             String?      @unique
+  emailVerified     DateTime?
+  image             String?
+  notificationEmail String?
+  accounts          Account[]
+  sessions          Session[]
+  persons           Person[]
+  supplements       Supplement[]
 }
 
 model Account {

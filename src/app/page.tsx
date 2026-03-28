@@ -8,6 +8,11 @@ export default async function Home() {
   if (!session?.user?.id) redirect("/api/auth/signin");
   const userId = session.user.id;
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, notificationEmail: true },
+  });
+
   const todayDate = new Date(new Date().toISOString().split("T")[0] + "T00:00:00.000Z");
 
   const [persons, supplements, rawSkipped, deductionTimeSetting, rawDeductedToday, rawAllLogs] = await Promise.all([
@@ -53,7 +58,12 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-white">
       <SupplementsClient
-        user={{ name: session.user.name ?? null, image: session.user.image ?? null }}
+        user={{
+          name: session.user.name ?? null,
+          image: session.user.image ?? null,
+          email: dbUser?.email ?? null,
+          notificationEmail: dbUser?.notificationEmail ?? null,
+        }}
         persons={persons}
         supplements={serialized}
         skippedIntakes={skippedIntakes}

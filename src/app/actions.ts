@@ -136,8 +136,22 @@ export async function updateDeductionTime(time: string) {
     create: { key: "deductionTime", value: time },
     update: { value: time },
   });
-  const { reschedule } = await import("@/lib/scheduler");
-  reschedule(time);
+  // reschedule only applies in local dev (node-cron); on Vercel the cron job handles this
+  if (process.env.NEXT_RUNTIME !== "edge") {
+    try {
+      const { reschedule } = await import("@/lib/scheduler");
+      reschedule(time);
+    } catch {}
+  }
+  revalidatePath("/");
+}
+
+export async function updateNotificationEmail(email: string | null) {
+  const userId = await getUserId();
+  await prisma.user.update({
+    where: { id: userId },
+    data: { notificationEmail: email || null },
+  });
   revalidatePath("/");
 }
 
