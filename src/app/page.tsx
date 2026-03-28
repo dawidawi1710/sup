@@ -53,6 +53,7 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-white">
       <SupplementsClient
+        user={{ name: session.user.name ?? null, image: session.user.image ?? null }}
         persons={persons}
         supplements={serialized}
         skippedIntakes={skippedIntakes}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef, Fragment } from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import NewSupplementModal from "./NewSupplementModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import CalendarModal from "./CalendarModal";
@@ -628,6 +629,7 @@ function PersonManager({
 // ── SupplementsClient ─────────────────────────────────────────────────────────
 
 export default function SupplementsClient({
+  user,
   persons,
   supplements,
   skippedIntakes,
@@ -635,6 +637,7 @@ export default function SupplementsClient({
   deductedToday,
   allDeductionLogs,
 }: {
+  user: { name: string | null; image: string | null };
   persons: Person[];
   supplements: Supplement[];
   skippedIntakes: SkippedIntake[];
@@ -700,17 +703,20 @@ export default function SupplementsClient({
             <Dots />
           </div>
 
-          {/* Avatar */}
-          {persons.length > 0 && (
-            <div className="flex cursor-default items-center gap-2 group">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f5] text-sm font-medium text-[#525252] transition-transform group-hover:scale-105">
-                {persons[0].name[0].toUpperCase()}
+          {/* Avatar + sign out */}
+          <button
+            onClick={() => signOut()}
+            title="Sign out"
+            className="flex items-center gap-2 rounded-full p-1 transition-opacity hover:opacity-70"
+          >
+            {user.image ? (
+              <img src={user.image} alt={user.name ?? "User"} className="h-9 w-9 rounded-full" />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f5f5f5] text-sm font-medium text-[#525252]">
+                {user.name?.[0]?.toUpperCase() ?? "?"}
               </div>
-              <span className="text-sm font-medium text-[#0a0a0a]">
-                {persons[0].name}
-              </span>
-            </div>
-          )}
+            )}
+          </button>
         </div>
       </header>
 
