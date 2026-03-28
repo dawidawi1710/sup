@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const FROM = "Supplement Tracker <notifications@sup.danawilliams.dev>";
+const FROM = "Supplement Tracker <notifications@supplement-manager.com>";
 
 function getResend() {
   if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
