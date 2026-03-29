@@ -703,7 +703,7 @@ export default function SupplementsClient({
           {/* Wordmark + dots */}
           <div className="relative flex items-center gap-1">
             <span className="text-xl font-semibold tracking-tight text-[#0a0a0a]">
-              SUPPLEMENT TRACKER
+              SUPPLEMENT MANAGER
             </span>
             <Dots />
           </div>
