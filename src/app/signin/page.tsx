@@ -1,21 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
-export default function SignInPage() {
+function SwitchAccountHandler() {
   const params = useSearchParams();
-
   useEffect(() => {
     if (params.get("switch") === "true") {
       signIn("google", { callbackUrl: "/" });
     }
   }, [params]);
+  return null;
+}
 
+export default function SignInPage() {
   return (
     <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
+        <Suspense>
+          <SwitchAccountHandler />
+        </Suspense>
 
         {/* Logo / wordmark */}
         <div className="mb-8 flex flex-col items-center gap-2">
