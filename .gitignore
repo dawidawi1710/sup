@@ -91,3 +91,5 @@ uploads/
 *.pem
 *.key
 *.crt
+.vercel
+.serena
