@@ -65,6 +65,70 @@ type DeductionLogEntry = {
   unitsDeducted: number;
 };
 
+// ── UserMenu ──────────────────────────────────────────────────────────────────
+
+function UserMenu({ user }: { user: { name?: string | null; image?: string | null } }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-full p-1 transition-opacity hover:opacity-70"
+      >
+        {user.image ? (
+          <Image src={user.image} alt={user.name ?? "User"} width={36} height={36} className="rounded-full" />
+        ) : (
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f5f5f5] text-sm font-medium text-[#525252]">
+            {user.name?.[0]?.toUpperCase() ?? "?"}
+          </div>
+        )}
+      </button>
+
+      {/* Dropdown */}
+      <div
+        className={`absolute right-0 top-[calc(100%+8px)] z-50 w-44 origin-top rounded-[14px] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08),0_12px_32px_rgba(0,0,0,0.08)] transition-all duration-150 ${
+          open ? "scale-y-100 opacity-100" : "pointer-events-none scale-y-95 opacity-0"
+        }`}
+        style={{ transformOrigin: "top right" }}
+      >
+        <div className="p-1.5">
+          <button
+            onClick={() => { setOpen(false); signOut({ callbackUrl: "/signin" }); }}
+            className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm text-[#0a0a0a] transition-colors hover:bg-[#f5f5f5]"
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden>
+              <path d="M3 1.5A1.5 1.5 0 0 0 1.5 3v9A1.5 1.5 0 0 0 3 13.5h4.5a.5.5 0 0 0 0-1H3a.5.5 0 0 1-.5-.5V3A.5.5 0 0 1 3 2.5h4.5a.5.5 0 0 0 0-1H3Z" fill="currentColor"/>
+              <path d="M10.854 5.146a.5.5 0 0 0-.708.708L11.293 7H6.5a.5.5 0 0 0 0 1h4.793l-1.147 1.146a.5.5 0 0 0 .708.708l2-2a.5.5 0 0 0 0-.708l-2-2Z" fill="currentColor"/>
+            </svg>
+            Log out
+          </button>
+          <button
+            onClick={() => { setOpen(false); signOut({ callbackUrl: "/signin?switch=true" }); }}
+            className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm text-[#0a0a0a] transition-colors hover:bg-[#f5f5f5]"
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden>
+              <path d="M7.5 1a6.5 6.5 0 1 0 0 13A6.5 6.5 0 0 0 7.5 1ZM0 7.5a7.5 7.5 0 1 1 15 0 7.5 7.5 0 0 1-15 0Z" fill="currentColor"/>
+              <path d="M7.5 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM4.5 6a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z" fill="currentColor"/>
+              <path d="M2.873 12.572A5.5 5.5 0 0 1 7.5 10a5.5 5.5 0 0 1 4.627 2.572.5.5 0 1 1-.84.542A4.5 4.5 0 0 0 7.5 11a4.5 4.5 0 0 0-3.787 2.114.5.5 0 1 1-.84-.542Z" fill="currentColor"/>
+            </svg>
+            Switch account
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Decorative dots motif ─────────────────────────────────────────────────────
 
 function Dots({ style }: { style?: React.CSSProperties }) {
@@ -674,20 +738,8 @@ export default function SupplementsClient({
             <Dots />
           </div>
 
-          {/* Avatar + sign out */}
-          <button
-            onClick={() => signOut()}
-            title="Sign out"
-            className="flex items-center gap-2 rounded-full p-1 transition-opacity hover:opacity-70"
-          >
-            {user.image ? (
-              <Image src={user.image} alt={user.name ?? "User"} width={36} height={36} className="rounded-full" />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f5f5f5] text-sm font-medium text-[#525252]">
-                {user.name?.[0]?.toUpperCase() ?? "?"}
-              </div>
-            )}
-          </button>
+          {/* Avatar + user menu */}
+          <UserMenu user={user} />
         </div>
       </header>
 

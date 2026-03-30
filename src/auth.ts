@@ -12,6 +12,9 @@ declare module "next-auth" {
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [Google],
+  pages: {
+    signIn: "/signin",
+  },
   callbacks: {
     session({ session, user }) {
       session.user.id = user.id;
