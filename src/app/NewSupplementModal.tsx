@@ -1,5 +1,6 @@
 "use client";
 
+import { useFormStatus } from "react-dom";
 import { createSupplement, updateSupplement } from "./actions";
 
 type Supplement = {
@@ -48,13 +49,7 @@ export default function NewSupplementModal({ onClose, initial }: Props) {
           <Field label="Cost per package (€)" name="costPerPackage" type="number" step="0.01" defaultValue={initial?.costPerPackage?.toString()} required />
 
           <div className="mt-3 flex flex-col gap-3">
-            <button
-              type="submit"
-              className="h-13 w-full rounded-xl bg-[#0a0a0a] text-sm font-semibold text-white transition-shadow hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
-              style={{ height: 52 }}
-            >
-              {initial ? "Save changes" : "Create supplement"}
-            </button>
+            <SubmitButton label={initial ? "Save changes" : "Create supplement"} />
             <button
               type="button"
               onClick={onClose}
@@ -66,6 +61,20 @@ export default function NewSupplementModal({ onClose, initial }: Props) {
         </form>
       </div>
     </div>
+  );
+}
+
+function SubmitButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="h-13 w-full rounded-xl bg-[#0a0a0a] text-sm font-semibold text-white transition-shadow hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] disabled:opacity-50 disabled:cursor-not-allowed"
+      style={{ height: 52 }}
+    >
+      {label}
+    </button>
   );
 }
 

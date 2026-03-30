@@ -293,62 +293,28 @@ function PackageInputs({
   return (
     <div className="border-t border-[#f0f0f0] pt-5">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-        {display.map((v, i) => (
-          <div key={i} className="flex items-center gap-2">
-            {display.length > 1 && (
-              <span className="text-xs font-medium text-[#737373]">
-                Pkg {i + 1}:
-              </span>
-            )}
-            {display.length === 1 && (
-              <span className="text-xs text-[#737373]">Units left:</span>
-            )}
-            {display.length > 1 && (
-              <div className="h-1 w-16 overflow-hidden rounded-full bg-[#f0f0f0]">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${barFill}`}
-                  style={{
-                    width: `${Math.min(((parseInt(v) || 0) / amountOfUnits) * 100, 100)}%`,
-                  }}
-                />
-              </div>
-            )}
+        {display.length === 1 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#737373]">Units left:</span>
             <input
               type="number"
               min={0}
               max={amountOfUnits}
-              value={v}
-              onChange={(e) => handleChange(i, e.target.value)}
-              onBlur={() => handleBlur(i)}
-              onKeyDown={(e) => e.key === "Enter" && handleBlur(i)}
-              style={{ width: `${Math.max(v.length, 1) + 2}ch` }}
+              value={display[0]}
+              onChange={(e) => handleChange(0, e.target.value)}
+              onBlur={() => handleBlur(0)}
+              onKeyDown={(e) => e.key === "Enter" && handleBlur(0)}
+              style={{ width: `${Math.max(display[0].length, 1) + 2}ch` }}
               className="h-8 rounded-lg border border-[#e5e5e5] px-1 text-center text-sm text-[#0a0a0a] transition-colors duration-150 focus:border-[#0a0a0a] focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             <span className="text-sm text-[#a3a3a3]">/ {amountOfUnits}</span>
-            {display.length > 1 && (
-              <button
-                onClick={() => {
-                  const nextDisplay = display.filter((_, idx) => idx !== i);
-                  setDisplay(nextDisplay);
-                  startTransition(() =>
-                    updatePackageUnits(
-                      id,
-                      nextDisplay.map((v) => parseInt(v) || 0),
-                    ),
-                  );
-                }}
-                className="text-[#d4d4d4] transition-colors hover:text-[#ef4444]"
-                aria-label={`Delete package ${i + 1}`}
-              >
-                ×
-              </button>
-            )}
           </div>
-        ))}
-        {display.length > 1 && (
-          <span className="text-sm font-medium text-[#525252]">
-            = {total} units
-          </span>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#737373]">Units left:</span>
+            <span className="text-sm font-medium text-[#0a0a0a]">{total}</span>
+            <span className="text-sm text-[#a3a3a3]">/ {amountOfUnits}</span>
+          </div>
         )}
         {daysLeft != null && (
           <span
