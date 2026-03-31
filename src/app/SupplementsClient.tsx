@@ -67,8 +67,19 @@ type DeductionLogEntry = {
 
 // ── UserMenu ──────────────────────────────────────────────────────────────────
 
-function UserMenu({ user }: { user: { name?: string | null; image?: string | null } }) {
+function UserMenu({
+  user,
+  notifEmail,
+  setNotifEmail,
+  onSaveEmail,
+}: {
+  user: { name?: string | null; image?: string | null; email?: string | null };
+  notifEmail: string;
+  setNotifEmail: (v: string) => void;
+  onSaveEmail: (v: string) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,6 +89,11 @@ function UserMenu({ user }: { user: { name?: string | null; image?: string | nul
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  function commitEmail() {
+    setEditingEmail(false);
+    onSaveEmail(notifEmail);
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -96,11 +112,46 @@ function UserMenu({ user }: { user: { name?: string | null; image?: string | nul
 
       {/* Dropdown */}
       <div
-        className={`absolute right-0 top-[calc(100%+8px)] z-50 w-44 origin-top rounded-[14px] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08),0_12px_32px_rgba(0,0,0,0.08)] transition-all duration-150 ${
+        className={`absolute right-0 top-[calc(100%+8px)] z-50 w-60 origin-top rounded-[14px] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08),0_12px_32px_rgba(0,0,0,0.08)] transition-all duration-150 ${
           open ? "scale-y-100 opacity-100" : "pointer-events-none scale-y-95 opacity-0"
         }`}
         style={{ transformOrigin: "top right" }}
       >
+        {/* Alert email section */}
+        <div className="px-3 pb-2 pt-3">
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#a3a3a3]">Alert email</p>
+          {editingEmail ? (
+            <input
+              type="email"
+              value={notifEmail}
+              autoFocus
+              placeholder={user.email ?? "your@email.com"}
+              onChange={(e) => setNotifEmail(e.target.value)}
+              onBlur={commitEmail}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Escape") { setNotifEmail(notifEmail); setEditingEmail(false); }
+              }}
+              className="w-full rounded-lg border border-[#0a0a0a] bg-transparent px-2 py-1 text-sm text-[#0a0a0a] focus:outline-none"
+            />
+          ) : (
+            <button
+              onClick={() => setEditingEmail(true)}
+              className="group flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-[#f5f5f5]"
+              title="Click to edit alert email"
+            >
+              <span className="truncate text-sm text-[#0a0a0a]">
+                {notifEmail || user.email || "Add email"}
+              </span>
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" className="shrink-0 text-[#d4d4d4] transition-colors group-hover:text-[#737373]" aria-hidden>
+                <path d="M7.5 1.5 9.5 3.5l-6 6H1.5v-2l6-6Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <div className="mx-1.5 border-t border-[#f0f0f0]" />
+
         <div className="p-1.5">
           <button
             onClick={() => { setOpen(false); signOut({ callbackUrl: "/signin" }); }}
@@ -690,7 +741,6 @@ export default function SupplementsClient({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [, startReorderTransition] = useTransition();
   const [notifEmail, setNotifEmail] = useState(user.notificationEmail ?? "");
-  const [editingNotifEmail, setEditingNotifEmail] = useState(false);
   const [, startNotifTransition] = useTransition();
 
   useEffect(() => {
@@ -739,166 +789,52 @@ export default function SupplementsClient({
           </div>
 
           {/* Avatar + user menu */}
-          <UserMenu user={user} />
+          <UserMenu
+            user={user}
+            notifEmail={notifEmail}
+            setNotifEmail={setNotifEmail}
+            onSaveEmail={(v) => startNotifTransition(() => updateNotificationEmail(v || null))}
+          />
         </div>
       </header>
 
       {/* Main content */}
       <div className="mx-auto w-full max-w-none px-8 py-8">
-        {/* Persons row */}
-        <div className="mb-6">
+        {/* Persons row + cost panel on same line */}
+        <div className="mb-6 flex items-center justify-between gap-4">
           <PersonManager
             persons={persons}
             supplements={supplements}
             deductedToday={deductedToday}
             deductionTime={deductionTime}
           />
-        </div>
-
-        {/* Cost summary + action bar */}
-        <div className="mb-12 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setCreating(true)}
-              className="h-11 rounded-xl bg-[#0a0a0a] px-5 text-sm font-semibold text-white transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
-            >
-              New supplement
-            </button>
-            <button
-              onClick={() => setShowCalendar(true)}
-              className="h-11 rounded-xl border border-[#e5e5e5] bg-white px-5 text-sm text-[#0a0a0a] transition-shadow duration-150 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-            >
-              Calendar
-            </button>
-            <button
-              onClick={() => {
-                setReordering((r) => !r);
-                setDragIndex(null);
-                setDragOverIndex(null);
-              }}
-              className={`h-11 rounded-xl border px-5 text-sm transition-all duration-150 ${
-                reordering
-                  ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
-                  : "border-[#e5e5e5] bg-white text-[#0a0a0a] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-              }`}
-            >
-              {reordering ? "Done" : "Reorder"}
-            </button>
-            {/* Auto-deduct time pill */}
-            <div className="flex items-center gap-2 rounded-full bg-[#f5f5f5] px-4 py-2 text-sm text-[#525252]">
-              <svg
-                className="h-4 w-4 shrink-0 text-[#737373]"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                viewBox="0 0 24 24"
-              >
-                <circle cx="12" cy="12" r="9" />
-                <path
-                  d="M12 7v5l3 3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {editingTime ? (
-                <input
-                  type="time"
-                  value={timeDisplay}
-                  autoFocus
-                  onChange={(e) => setTimeDisplay(e.target.value)}
-                  onBlur={() => {
-                    setEditingTime(false);
-                    startTimeTransition(() => updateDeductionTime(timeDisplay));
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter")
-                      (e.target as HTMLInputElement).blur();
-                    if (e.key === "Escape") {
-                      setTimeDisplay(deductionTime);
-                      setEditingTime(false);
-                    }
-                  }}
-                  className="w-20 rounded border border-[#0a0a0a] bg-transparent px-1 text-sm focus:outline-none"
-                />
-              ) : (
-                <button
-                  onClick={() => setEditingTime(true)}
-                  className="font-medium text-[#0a0a0a] transition-opacity hover:opacity-60"
-                >
-                  {timeDisplay}
-                </button>
-              )}
-            </div>
-          {/* Notification email pill */}
-          <div className="flex items-center gap-2 rounded-full bg-[#f5f5f5] px-4 py-2 text-sm text-[#525252]">
-            <svg className="h-4 w-4 shrink-0 text-[#737373]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-            </svg>
-            {editingNotifEmail ? (
-              <input
-                type="email"
-                value={notifEmail}
-                autoFocus
-                placeholder={user.email ?? "email"}
-                onChange={(e) => setNotifEmail(e.target.value)}
-                onBlur={() => {
-                  setEditingNotifEmail(false);
-                  startNotifTransition(() => updateNotificationEmail(notifEmail || null));
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                  if (e.key === "Escape") { setNotifEmail(user.notificationEmail ?? ""); setEditingNotifEmail(false); }
-                }}
-                className="w-44 rounded border border-[#0a0a0a] bg-transparent px-1 text-sm focus:outline-none"
-              />
-            ) : (
-              <button
-                onClick={() => setEditingNotifEmail(true)}
-                className="max-w-[180px] truncate font-medium text-[#0a0a0a] transition-opacity hover:opacity-60"
-                title={notifEmail || user.email || "Set notification email"}
-              >
-                {notifEmail || user.email || "Set email"}
-              </button>
-            )}
-          </div>
-        </div>
 
           {/* Cost summary panel */}
           {totalCostPerDay > 0 && (
-            <div className="flex items-center gap-6 rounded-xl border border-[#f0f0f0] bg-white px-6 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center gap-4 rounded-xl border border-[#f0f0f0] bg-white px-4 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
               {personCosts
                 .filter(({ cost }) => cost > 0)
                 .map(({ person, cost }) => (
                   <Fragment key={person.id}>
-                    <div className="text-center">
-                      <p className="text-xs text-[#737373]">{person.name}</p>
-                      <p className="text-lg font-semibold leading-tight text-[#0a0a0a]">
-                        €{cost.toFixed(2)}
-                        <span className="text-xs font-normal text-[#737373]">
-                          /day
-                        </span>
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-[#a3a3a3]">{person.name}</p>
+                      <p className="text-sm font-semibold text-[#0a0a0a]">
+                        €{cost.toFixed(2)}<span className="text-xs font-normal text-[#a3a3a3]">/d</span>
                       </p>
-                      <p className="text-xs text-[#737373]">
-                        €{(cost * 30).toFixed(2)}/mo
-                      </p>
+                      <p className="text-[11px] text-[#a3a3a3]">€{(cost * 30).toFixed(0)}/mo</p>
                     </div>
-                    <div className="h-8 w-px bg-[#e5e5e5]" />
+                    <div className="h-7 w-px bg-[#f0f0f0]" />
                   </Fragment>
                 ))}
-              <div className="text-center">
-                <p className="text-xs text-[#737373]">
-                  {persons.length > 1 ? "Total" : "Daily"}
-                </p>
-                <p className="text-lg font-semibold leading-tight text-[#0a0a0a]">
-                  €{totalCostPerDay.toFixed(2)}
-                  <span className="text-xs font-normal text-[#737373]">
-                    /day
-                  </span>
-                </p>
-                <p className="text-xs text-[#737373]">
-                  €{(totalCostPerDay * 30).toFixed(2)}/mo
-                </p>
-              </div>
+              {persons.length > 1 && (
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-[#a3a3a3]">Total</p>
+                  <p className="text-sm font-semibold text-[#0a0a0a]">
+                    €{totalCostPerDay.toFixed(2)}<span className="text-xs font-normal text-[#a3a3a3]">/d</span>
+                  </p>
+                  <p className="text-[11px] text-[#a3a3a3]">€{(totalCostPerDay * 30).toFixed(0)}/mo</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -911,6 +847,93 @@ export default function SupplementsClient({
                 Supplements
               </h2>
               <Dots style={{ top: -6 }} />
+              <button
+                onClick={() => setCreating(true)}
+                className="group ml-1 flex h-7 items-center overflow-hidden rounded-full border border-[#e5e5e5] bg-white pl-[7px] pr-[7px] transition-all duration-200 hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:pr-3"
+              >
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="shrink-0 text-[#0a0a0a] transition-colors duration-200 group-hover:text-white" aria-hidden>
+                  <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-medium text-white transition-all duration-200 group-hover:max-w-[120px] group-hover:pl-1.5">
+                  Add
+                </span>
+              </button>
+
+              <button
+                onClick={() => setShowCalendar(true)}
+                className="group flex h-7 items-center overflow-hidden rounded-full border border-[#e5e5e5] bg-white pl-[7px] pr-[7px] transition-all duration-200 hover:border-[#0a0a0a] hover:bg-[#0a0a0a] hover:pr-3"
+              >
+                {/* Calendar / history icon */}
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="shrink-0 text-[#0a0a0a] transition-colors duration-200 group-hover:text-white" aria-hidden>
+                  <rect x="1" y="2.5" width="11" height="9.5" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M1 5.5h11" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M4 1v3M9 1v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  <rect x="3.5" y="7.5" width="1.5" height="1.5" rx="0.3" fill="currentColor"/>
+                  <rect x="6" y="7.5" width="1.5" height="1.5" rx="0.3" fill="currentColor"/>
+                  <rect x="8.5" y="7.5" width="1.5" height="1.5" rx="0.3" fill="currentColor"/>
+                </svg>
+                <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-medium text-white transition-all duration-200 group-hover:max-w-[120px] group-hover:pl-1.5">
+                  History
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setReordering((r) => !r);
+                  setDragIndex(null);
+                  setDragOverIndex(null);
+                }}
+                className={`group flex h-7 items-center overflow-hidden rounded-full border pl-[7px] pr-[7px] transition-all duration-200 hover:pr-3 ${
+                  reordering
+                    ? "border-[#0a0a0a] bg-[#0a0a0a] hover:border-[#0a0a0a] hover:bg-[#0a0a0a]"
+                    : "border-[#e5e5e5] bg-white hover:border-[#0a0a0a] hover:bg-[#0a0a0a]"
+                }`}
+              >
+                {/* Drag-handle icon: 6-dot grid */}
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className={`shrink-0 transition-colors duration-200 group-hover:text-white ${reordering ? "text-white" : "text-[#0a0a0a]"}`} aria-hidden>
+                  <circle cx="4" cy="3" r="1.1" fill="currentColor"/>
+                  <circle cx="9" cy="3" r="1.1" fill="currentColor"/>
+                  <circle cx="4" cy="6.5" r="1.1" fill="currentColor"/>
+                  <circle cx="9" cy="6.5" r="1.1" fill="currentColor"/>
+                  <circle cx="4" cy="10" r="1.1" fill="currentColor"/>
+                  <circle cx="9" cy="10" r="1.1" fill="currentColor"/>
+                </svg>
+                <span className={`max-w-0 overflow-hidden whitespace-nowrap text-xs font-medium transition-all duration-200 group-hover:max-w-[120px] group-hover:pl-1.5 ${reordering ? "text-white max-w-[120px] pl-1.5" : "text-white"}`}>
+                  {reordering ? "Done" : "Rearrange"}
+                </span>
+              </button>
+
+              {/* Auto-deduct time — always shows clock + time, label on hover */}
+              <div className="group flex h-7 items-center overflow-hidden rounded-full border border-[#e5e5e5] bg-white pl-[7px] pr-2 transition-all duration-200 hover:border-[#0a0a0a] hover:bg-[#0a0a0a]">
+                <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-medium text-white transition-all duration-200 group-hover:max-w-[80px] group-hover:pr-1.5">
+                  Daily at
+                </span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="shrink-0 text-[#0a0a0a] transition-colors duration-200 group-hover:text-white" aria-hidden>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {editingTime ? (
+                  <input
+                    type="time"
+                    value={timeDisplay}
+                    autoFocus
+                    onChange={(e) => setTimeDisplay(e.target.value)}
+                    onBlur={() => { setEditingTime(false); startTimeTransition(() => updateDeductionTime(timeDisplay)); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      if (e.key === "Escape") { setTimeDisplay(deductionTime); setEditingTime(false); }
+                    }}
+                    className="ml-1 w-16 bg-transparent text-xs text-[#0a0a0a] focus:outline-none group-hover:text-white"
+                  />
+                ) : (
+                  <button
+                    onClick={() => setEditingTime(true)}
+                    className="ml-1 text-xs font-medium text-[#0a0a0a] transition-colors group-hover:text-white"
+                  >
+                    {timeDisplay}
+                  </button>
+                )}
+              </div>
             </div>
             <div
               className="grid gap-5"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createSupplement, updateSupplement } from "./actions";
 
@@ -22,6 +23,9 @@ type Props = {
 };
 
 export default function NewSupplementModal({ onClose, initial }: Props) {
+  const [isDirty, setIsDirty] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
   async function handleSubmit(formData: FormData) {
     if (initial) {
       await updateSupplement(initial.id, formData);
@@ -31,13 +35,32 @@ export default function NewSupplementModal({ onClose, initial }: Props) {
     onClose();
   }
 
+  function handleAttemptClose() {
+    if (isDirty) {
+      setShowConfirm(true);
+    } else {
+      onClose();
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-[20px] bg-white p-8 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_12px_32px_rgba(0,0,0,0.08)]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={handleAttemptClose}
+    >
+      {/* Card — stop propagation so clicks inside don't trigger backdrop */}
+      <div
+        className="w-full max-w-md rounded-[20px] bg-white p-8 shadow-[0_4px_16px_rgba(0,0,0,0.08),0_12px_32px_rgba(0,0,0,0.08)]"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="mb-8 text-xl font-semibold tracking-[-0.01em] text-[#0a0a0a]">
           {initial ? "Edit supplement" : "New supplement"}
         </h2>
-        <form action={handleSubmit} className="flex flex-col gap-5">
+        <form
+          action={handleSubmit}
+          className="flex flex-col gap-5"
+          onChange={() => setIsDirty(true)}
+        >
           <Field label="Active ingredient" name="activeIngredient" type="text" defaultValue={initial?.activeIngredient} required />
           <Field label="Dose per unit" name="dosePerUnit" type="text" defaultValue={initial?.dosePerUnit} required />
           <div className="grid grid-cols-2 gap-4">
@@ -52,7 +75,7 @@ export default function NewSupplementModal({ onClose, initial }: Props) {
             <SubmitButton label={initial ? "Save changes" : "Create supplement"} />
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleAttemptClose}
               className="text-sm text-[#737373] transition-colors hover:text-[#0a0a0a]"
             >
               Cancel
@@ -60,6 +83,33 @@ export default function NewSupplementModal({ onClose, initial }: Props) {
           </div>
         </form>
       </div>
+
+      {/* Discard confirmation */}
+      {showConfirm && (
+        <div
+          className="absolute inset-0 flex items-center justify-center p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-full max-w-xs rounded-[20px] bg-white p-6 shadow-[0_4px_16px_rgba(0,0,0,0.12),0_12px_32px_rgba(0,0,0,0.12)]">
+            <h3 className="mb-1 text-base font-semibold text-[#0a0a0a]">Discard changes?</h3>
+            <p className="mb-5 text-sm text-[#737373]">You&apos;ve started filling in this form. Your input will be lost.</p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={onClose}
+                className="h-11 w-full rounded-xl bg-[#0a0a0a] text-sm font-semibold text-white transition-shadow hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+              >
+                Discard
+              </button>
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="text-sm text-[#737373] transition-colors hover:text-[#0a0a0a]"
+              >
+                Keep editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
